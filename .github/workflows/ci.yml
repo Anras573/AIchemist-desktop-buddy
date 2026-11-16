@@ -67,6 +67,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check sprite pack
+        run: npm run check:sprites
+
       # Typecheck + build. Also produces dist/, which tauri::generate_context! embeds.
       - name: Build frontend
         run: npm run build
