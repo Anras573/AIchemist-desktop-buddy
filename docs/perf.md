@@ -18,11 +18,9 @@ process) is excluded.
 "Idle" means: launched, buddy window shown, no interaction, measured after a
 30 s settle period.
 
-Owner decision pending on whether the Windows metric is private working set
-(recommended, matches the "resident memory" wording in spec section 10) or
-Private Bytes. Until then we report both and keep both under 80 MB: private
-working set is what the user sees in Task Manager; Private Bytes is the
-stricter upper bound (it also counts committed pages that are not resident).
+Owner decision (2026-11-16): on Windows the target is measured as **private
+working set** (matches the "resident memory" wording in spec section 10).
+Private Bytes is still reported for reference but is not held to 80 MB.
 
 ## How to measure
 
@@ -157,19 +155,17 @@ process was attributed to the app at idle.
 - **Windows: under 80 MB with the kept flags**: 52 MB private working set,
   78 MB Private Bytes. Without them Private Bytes is ~153 MB (private working
   set ~69 MB).
-- The Windows Private Bytes margin is only ~2 MB, and this is a bare
-  placeholder page. The sprite canvas, bubble and IPC will add to it, so the
+- The Windows private working set margin is ~26-28 MB (Private Bytes, for
+  reference only, has ~2 MB). This is a bare placeholder page. The sprite canvas, bubble and IPC will add to it, so the
   number must be re-measured at M2 (perf baseline) and at every milestone.
 
-Options if Windows Private Bytes goes over 80 MB later, cheapest first:
+Options if Windows private working set goes over 80 MB later, cheapest first:
 
 1. Keep the page lean: no frameworks, small decoded sprite sheets, one canvas
    (already the plan, spec section 3).
-2. Count private working set only (it has ~28 MB margin). This is an owner
-   decision, not something to change silently.
-3. Release memory when hidden or sleeping: `TrySuspend` / hide the webview
+2. Release memory when hidden or sleeping: `TrySuspend` / hide the webview
    while the cat sleeps. Costs wake-up latency and complexity; only helps while
    hidden.
-4. Draw the buddy natively (no webview in the buddy window, e.g. a layered
+3. Draw the buddy natively (no webview in the buddy window, e.g. a layered
    window with a bitmap). Removes ~70 MB on Windows but means a second
    rendering path and much more platform code. Large cost.
