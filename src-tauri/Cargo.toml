@@ -18,7 +18,7 @@ crate-type = ["rlib"]
 tauri-build = { version = "2.7.5", features = [] }
 
 [dependencies]
-tauri = { version = "2.12.6", features = ["macos-private-api"] }
+tauri = { version = "2.12.6", features = ["macos-private-api", "tray-icon"] }
 # Already in the tree via tauri / tauri-utils; listed so domain types can use them.
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
@@ -35,11 +35,24 @@ serde_json = "1"
 # Already in the tree via tauri (the logging facade only, no logger). Used to
 # warn about an unreadable or invalid settings file.
 log = "0.4"
+# A second launch exits instead of showing a second buddy (spec 4). Official
+# plugin. On Windows and macOS it adds no crates beyond a proc-macro
+# (tracing-attributes): windows-sys, tokio and tracing are already in the tree
+# via tauri. At runtime it is a named mutex plus a hidden message window
+# (Windows) or a Unix socket listener on the existing async runtime (macOS).
+# zbus is pulled in only on Linux.
+tauri-plugin-single-instance = "2"
 
 # Click-through (src/click_through.rs). Same versions tauri/tao already use,
 # so these add no new crates, only a few extra API features.
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi"] }
+# Buddy window (src/buddy_window.rs): window subclass and extended styles.
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
 # OS keychain (src/secrets). keyring v4 is split into `keyring-core` (the API)
 # plus one crate per platform store; the `keyring` crate itself is only a
 # convenience bundle whose defaults pull in zbus on Linux. We link the core and
@@ -49,11 +62,22 @@ windows-native-keyring-store = { version = "1", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
+# Screen-change notification (src/buddy_window.rs). Already in the tree via
+# objc2-app-kit and tao.
+objc2-foundation = { version = "0.3", default-features = false, features = [
+  "std",
+  "block2",
+  "NSNotification",
+  "NSObject",
+  "NSOperation",
+  "NSString",
+] }
 block2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = [
   "std",
   "block2",
   "objc2-core-foundation",
+  "NSApplication",
   "NSEvent",
   "NSResponder",
   "NSTrackingArea",
