@@ -10,6 +10,7 @@ pub mod ical;
 pub mod scheduler;
 pub mod state_machine;
 pub mod storage;
+pub mod sync;
 
 use tauri::Manager;
 
