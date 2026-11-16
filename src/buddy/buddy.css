@@ -1,0 +1,14 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  font-family: system-ui, sans-serif;
+  background: #2b2b2b;
+  color: #e6e6e6;
+  user-select: none;
+}
