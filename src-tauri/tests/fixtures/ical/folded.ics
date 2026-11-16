@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//Fixture//EN
+BEGIN:VEVENT
+UID:folded-uid-that-is-quite-long-0123456789-abcdefghijklmnopqrstuvwxyz@exa
+ mple.com
+DTSTAMP:20261101T120000Z
+DTSTART:20261116T
+ 090000Z
+DTEND:20261116T100000Z
+SUMMARY:Quarterly planning møde with a deliberately long title that has to
+  be folded across several physical lines\, because RFC 5545 limits lines t
+ o seventy-five octets
+LOCATION:Building 7\, Meeting room "Fjord" - enter through the north door a
+	nd take the stairs
+ORGANIZER;CN="Example Organizer, With A Very Long Display Name That Is Fold
+ ed":mailto:organizer@example.org
+DESCRIPTION:Line one\nLine two\nLine three with a lot of text to make the
+ line longer than seventy-five octets so that it folds.
+END:VEVENT
+END:VCALENDAR

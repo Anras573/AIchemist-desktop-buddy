@@ -6,6 +6,7 @@
 
 #[deny(missing_docs)]
 pub mod domain;
+pub mod ical;
 pub mod scheduler;
 pub mod state_machine;
 pub mod storage;
