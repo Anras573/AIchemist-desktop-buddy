@@ -11,6 +11,7 @@
   },
   "app": {
     "withGlobalTauri": false,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "buddy",
@@ -18,7 +19,13 @@
         "url": "buddy/index.html",
         "width": 320,
         "height": 320,
-        "resizable": false
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --disable-gpu --disable-software-rasterizer --in-process-gpu --enable-features=NetworkServiceInProcess,NetworkServiceInProcess2"
       }
     ],
     "security": {

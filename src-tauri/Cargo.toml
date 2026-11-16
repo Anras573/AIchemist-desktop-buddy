@@ -18,7 +18,7 @@ crate-type = ["rlib"]
 tauri-build = { version = "2.7.5", features = [] }
 
 [dependencies]
-tauri = { version = "2.12.6", features = [] }
+tauri = { version = "2.12.6", features = ["macos-private-api"] }
 # Already in the tree via tauri / tauri-utils; listed so domain types can use them.
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"

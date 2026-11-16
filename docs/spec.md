@@ -165,7 +165,7 @@ Settings changes apply live where practical, without a restart.
 
 | Metric | Target |
 |---|---|
-| Resident memory, idle, buddy window only | < 80 MB (report the measured number on each platform) |
+| Resident memory, idle, buddy window only | < 80 MB (report the measured number on each platform). Counts only memory the app uses on its own, summed over the app process and its WebView child processes: private working set on Windows, physical footprint on macOS. Shared memory is excluded. See `docs/perf.md`. |
 | CPU, idle (sleeping or idle state) | ~0% (sustained < 1%) |
 | Timers | One scheduler timer. No busy loops or fixed-interval polling on the UI side. |
 

@@ -1,0 +1,86 @@
+name: Perf
+
+# Idle memory of the buddy window (spec section 10, docs/perf.md).
+# Manual, plus PRs that touch the window, the webview or the measurement.
+on:
+  workflow_dispatch:
+    inputs:
+      settle:
+        description: Idle seconds before measuring
+        default: "30"
+  pull_request:
+    paths:
+      - .github/workflows/perf.yml
+      - tools/measure-memory.*
+      - src-tauri/tauri.conf.json
+      - src-tauri/Cargo.toml
+      - src-tauri/src/**
+      - src/buddy/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  SETTLE: ${{ github.event.inputs.settle || '30' }}
+
+jobs:
+  idle-memory:
+    name: idle memory (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Release build (Windows)
+        if: runner.os == 'Windows'
+        run: npm run tauri build -- --no-bundle
+
+      - name: Release build (macOS, .app bundle)
+        if: runner.os == 'macOS'
+        run: npm run tauri build -- --bundles app
+
+      - name: Measure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue |
+            ForEach-Object { "WebView2 runtime: $($_.pv)" }
+          ./tools/measure-memory.ps1 -ExePath src-tauri/target/release/aichemist-desktop-buddy.exe -SettleSeconds $env:SETTLE *>&1 |
+            Tee-Object -FilePath perf.txt
+          "### Idle memory, ${{ matrix.os }}`n``````text" >> $env:GITHUB_STEP_SUMMARY
+          Get-Content perf.txt >> $env:GITHUB_STEP_SUMMARY
+          '```' >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Measure (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -o pipefail
+          sw_vers
+          ./tools/measure-memory.sh --app "src-tauri/target/release/bundle/macos/AIchemist Desktop Buddy.app" --settle "$SETTLE" 2>&1 | tee perf.txt
+          {
+            echo "### Idle memory, ${{ matrix.os }}"
+            echo '```text'
+            cat perf.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
