@@ -693,15 +693,16 @@ fn sync_now_during_a_sync_coalesces() {
     handle.sync_now();
     gated.open();
     wait_for(&rx, &SyncUpdate::Ended);
-
-    // No overlapping or follow-up sync.
+    // The three requests made during the sync run once, afterwards.
+    wait_for(&rx, &SyncUpdate::Started);
+    wait_for(&rx, &SyncUpdate::Ended);
     assert!(rx.recv_timeout(StdDuration::from_millis(300)).is_err());
-    assert_eq!(gated.inner.fetch_count(), 1);
+    assert_eq!(gated.inner.fetch_count(), 2);
 
     // A later request runs again.
     handle.sync_now();
     wait_for(&rx, &SyncUpdate::Ended);
-    assert_eq!(gated.inner.fetch_count(), 2);
+    assert_eq!(gated.inner.fetch_count(), 3);
     drop(worker); // Drop stops and joins the thread.
 }
 

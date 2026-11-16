@@ -115,9 +115,8 @@ pub struct SyncHandle {
 }
 
 impl SyncHandle {
-    /// Requests a full sync (IPC `sync_now`). Requests made while a full
-    /// sync is running are absorbed by it; several requests coalesce into
-    /// one sync.
+    /// Requests a full sync (IPC `sync_now`). Syncs never overlap: requests
+    /// made while a sync is running coalesce into one follow-up sync.
     pub fn sync_now(&self) {
         self.shared.update(|c| c.sync_now = true);
     }
@@ -186,13 +185,7 @@ fn run(shared: &Shared, mut engine: SyncEngine) {
                 settings: control.settings.take(),
             }
         };
-        let outcome = engine.tick(triggers);
-        next_wake = outcome.next_wake;
-        if outcome.full_sync {
-            // `sync_now` requests that arrived during this full sync are
-            // satisfied by it.
-            shared.control().sync_now = false;
-        }
+        next_wake = engine.tick(triggers).next_wake;
     }
 }
 
