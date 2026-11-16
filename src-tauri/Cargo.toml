@@ -42,6 +42,21 @@ log = "0.4"
 # (Windows) or a Unix socket listener on the existing async runtime (macOS).
 # zbus is pulled in only on Linux.
 tauri-plugin-single-instance = "2"
+# Microsoft Graph OAuth (src/graph). ureq is a small blocking HTTP client (no
+# async runtime, no hyper); the providers are synchronous (domain/provider.rs).
+# TLS goes through the OS (SChannel on Windows, Security.framework on macOS)
+# with the OS root store: no bundled ring/rustls/webpki roots, and corporate
+# TLS-inspecting proxies whose CA is in the OS store keep working. No gzip.
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default"] }
+# Already in the tree via tauri. OS randomness for the PKCE verifier and `state`.
+getrandom = "0.3"
+# Same version tauri-codegen already builds. SHA-256 for the PKCE S256 challenge.
+sha2 = { version = "0.11", default-features = false }
+# Already in the tree via tauri-utils (plist). base64url for PKCE and id_token.
+base64 = { version = "0.23", default-features = false, features = ["alloc"] }
+# Already in the tree via url. Encodes the authorize URL query and parses the
+# loopback redirect query.
+form_urlencoded = "1"
 
 # Click-through (src/click_through.rs). Same versions tauri/tao already use,
 # so these add no new crates, only a few extra API features.
