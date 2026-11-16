@@ -8,6 +8,7 @@
 pub mod domain;
 pub mod ical;
 pub mod scheduler;
+pub mod secrets;
 pub mod state_machine;
 pub mod storage;
 pub mod sync;

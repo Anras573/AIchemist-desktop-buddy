@@ -33,7 +33,7 @@ A small, always-running desktop companion: an animated pixel-art gray tabby cat 
 | Core / backend | Rust |
 | Frontend | TypeScript + plain HTML/CSS/Canvas. **No heavy frameworks** (keeps memory down). A tiny library such as Preact or Svelte is acceptable for the settings window only, and only if it is not loaded in the buddy window. |
 | Storage | SQLite (via `rusqlite`) for the event cache and tasks. JSON file for settings. |
-| Secrets | OS keychain (`keyring` crate): Windows Credential Manager, macOS Keychain. |
+| Secrets | OS keychain via `keyring-core` plus the platform store crates (`windows-native-keyring-store`, `apple-native-keyring-store`), which are the parts the `keyring` crate bundles: Windows Credential Manager, macOS Keychain. Linux has no backend in v1. |
 | CI | GitHub Actions: build and test on `windows-latest` and `macos-latest`. A Linux build job is allowed to fail. |
 | License | MIT |
 

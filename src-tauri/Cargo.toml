@@ -40,6 +40,12 @@ log = "0.4"
 # so these add no new crates, only a few extra API features.
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi"] }
+# OS keychain (src/secrets). keyring v4 is split into `keyring-core` (the API)
+# plus one crate per platform store; the `keyring` crate itself is only a
+# convenience bundle whose defaults pull in zbus on Linux. We link the core and
+# only the native store. Default `search` feature off (it pulls in regex).
+keyring-core = "1"
+windows-native-keyring-store = { version = "1", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
@@ -54,6 +60,9 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
   "NSView",
   "NSWindow",
 ] }
+# OS keychain (src/secrets): the login keychain via security-framework.
+keyring-core = "1"
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
 
 [profile.release]
 codegen-units = 1
