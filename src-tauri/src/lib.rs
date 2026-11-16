@@ -6,6 +6,7 @@
 
 #[deny(missing_docs)]
 pub mod domain;
+pub mod state_machine;
 
 /// Label of the buddy window declared in `tauri.conf.json`.
 pub const BUDDY_WINDOW_LABEL: &str = "buddy";
