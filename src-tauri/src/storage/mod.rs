@@ -1,8 +1,17 @@
-//! SQLite storage: connection setup and schema migrations.
+//! Local storage: the SQLite database and the settings file.
 //!
 //! The schema and its conventions are documented in `docs/storage.md`.
-//! This module only opens databases and keeps their schema current; the
-//! repositories that read and write rows are built on top of it.
+//! [`open`] and [`open_in_memory`] open databases and keep their schema
+//! current. [`Storage`] is the thread-safe handle the rest of the app uses;
+//! its methods are grouped by table in the submodules:
+//!
+//! * [`tasks`]: local tasks, and the local [`TaskSource`](crate::domain::TaskSource);
+//! * [`events`]: the event cache, replaced per account after each sync;
+//! * [`reminders`]: the reminder ledger;
+//! * [`sync_state`]: per-account sync status;
+//! * [`prune`]: removal of old events and reminders.
+//!
+//! [`settings`] loads and saves the JSON settings file.
 //!
 //! # Migrations
 //!
@@ -15,6 +24,18 @@
 //! new one.
 
 pub mod codec;
+pub mod events;
+mod handle;
+pub mod prune;
+pub mod reminders;
+pub mod settings;
+pub mod sync_state;
+pub mod tasks;
+
+pub use handle::{whole_seconds, Storage};
+pub use prune::{PruneStats, DEFAULT_RETENTION};
+pub use settings::{load_settings, save_settings, SETTINGS_FILE_NAME};
+pub use sync_state::AccountSyncRecord;
 
 use std::path::Path;
 use std::time::Duration;
@@ -36,8 +57,14 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 impl From<rusqlite::Error> for Error {
     /// Maps any SQLite failure to [`Error::Storage`]. rusqlite messages name
     /// tables, columns and constraints but never bound values, so they carry no
-    /// task or event contents.
+    /// task or event contents. A decoding error raised inside a row mapper
+    /// (see [`codec::row_error`]) comes back as the original error.
     fn from(e: rusqlite::Error) -> Self {
+        if let rusqlite::Error::FromSqlConversionFailure(_, _, inner) = &e {
+            if let Some(inner) = inner.downcast_ref::<Error>() {
+                return inner.clone();
+            }
+        }
         Error::storage(e.to_string())
     }
 }
@@ -106,5 +133,7 @@ fn apply_migrations(conn: &mut Connection, migrations: &[&str]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod repo_tests;
 #[cfg(test)]
 mod tests;

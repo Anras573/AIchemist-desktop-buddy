@@ -1,8 +1,8 @@
 # Storage
 
 Tasks, the event cache, per-account sync status and the reminder ledger live in one SQLite
-database, accessed through `rusqlite` (spec section 3). Settings are a separate JSON file and are
-not covered here. The code is in `src-tauri/src/storage/`.
+database, accessed through `rusqlite` (spec section 3). Settings are a separate JSON file (see
+[Settings file](#settings-file)). The code is in `src-tauri/src/storage/`.
 
 ## Opening a database
 
@@ -25,6 +25,64 @@ Every connection gets:
   with small, infrequent writes (a sync every 10 minutes, the occasional task edit) and no
   concurrent readers that would benefit from WAL. WAL would add `-wal` and `-shm` files and
   checkpointing for no gain.
+
+## The `Storage` handle
+
+`storage::Storage` is what the rest of the app uses. It is `Clone` (an `Arc` inside), `Send` and
+`Sync`: one `rusqlite::Connection` behind a `Mutex`, plus a `Clock`. Each method locks the
+connection for one statement or one transaction. Writes are small and rare, so one shared
+connection is enough. The methods block briefly, so call them from a worker thread or
+`spawn_blocking`, not from the Tauri main thread.
+
+`Storage::open(path, clock)` opens the app database; tests use
+`Storage::open_in_memory(Arc::new(FakeClock::new(..)))`. The clock stamps `created_at`,
+`done_at` and sync times, and converts query windows to local dates.
+
+| Area | Methods |
+|---|---|
+| Tasks (`storage::tasks`) | `create_task(title, due_at)`, `get_task`, `list_tasks` (by due time), `update_task(id, title, due_at)`, `set_task_done(id, done)`, `delete_task`. `Storage` implements `TaskSource` (the local source). |
+| Event cache (`storage::events`) | `replace_events(account, calendars, events)`, `events_in_window(from, to)`, `remove_account(account)` |
+| Reminder ledger (`storage::reminders`) | `load_reminders()`, `save_reminders(&ledger)` |
+| Sync state (`storage::sync_state`) | `record_sync_attempt`, `record_sync_success`, `record_sync_failure(account, &error)`, `sync_state(account)`, `list_sync_states()` |
+| Pruning (`storage::prune`) | `prune(retention)`, `DEFAULT_RETENTION` (1 day) |
+
+Rules the repositories implement:
+
+- **Task ids** are 128 random bits as 32 lowercase hex digits, generated with std only
+  (`RandomState` hashers are keyed from OS randomness). Titles are trimmed and must then be 1 to
+  200 characters, otherwise `Error::Validation` on the field `title`. Times are truncated to
+  whole seconds before they are returned, so a returned task equals the stored one.
+  Marking a done task done again keeps its first `done_at`.
+- **Event cache.** `replace_events` runs in one transaction: it deletes all of the account's
+  events and inserts the new ones. Call it only after a successful sync, so a failed sync keeps
+  the last good cache. Events of calendars outside the given set are dropped as well, because
+  those calendars are no longer included. An event of another account or calendar is refused
+  with `Error::InvalidInput`. A duplicate key keeps the last event.
+- **Window queries** use the half-open window `[from, to)`. All-day events are compared on local
+  dates, using the clock: `from_date` is the local date of `from`, and `to_date` is the local
+  date of `to` rounded up to a whole day.
+- **Ledger saves** upsert every instance against the partial unique index of its kind, with the
+  index's `WHERE` clause repeated in the conflict target, then delete the rows whose key is not
+  in the new ledger. All in one transaction.
+- **Sync errors** keep only the error kind and message, cut to 500 characters.
+- **Pruning** deletes events that ended at or before `now - retention`, and meeting reminder rows
+  due before that cutoff whose event is no longer cached. Task reminder rows follow the
+  scheduler's ledger. Call it after a sync or at startup.
+
+## Settings file
+
+`storage::load_settings(path)` and `storage::save_settings(path, &settings)`. The caller resolves
+the directory with Tauri's path API (`app_config_dir()`) and joins `SETTINGS_FILE_NAME`
+(`settings.json`).
+
+- Loading never fails. A missing file gives defaults. An unreadable file or invalid JSON gives
+  defaults. A section with the wrong shape or failing `Settings::validate` is reset to its
+  defaults, an invalid account (including a duplicate id) is dropped, and a wrong
+  `schemaVersion` is reset. Each fallback logs a warning (`log` crate) with field paths only,
+  never values. Loading does not rewrite the file.
+- Saving validates first (`Error::Validation`, file untouched), then writes `settings.json.tmp`,
+  flushes it, and renames it over `settings.json`. A crash leaves the old or the new file.
+- Settings never contain secrets. `SecretString` is not `Serialize`.
 
 ## Conventions
 

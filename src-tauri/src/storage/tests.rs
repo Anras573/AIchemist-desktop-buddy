@@ -1,17 +1,20 @@
 //! Schema and migration tests.
 //!
-//! The row mapping helpers here exist only to prove the schema can hold every
-//! domain value; the real repositories live elsewhere.
+//! They use the repositories' row mappers to prove the schema can hold every
+//! domain value. Repository behaviour is tested next to each repository.
 
 use std::path::PathBuf;
 
 use chrono::{NaiveDate, TimeZone, Utc};
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use super::codec::*;
+use super::events::{event_from_row, insert_event};
+use super::reminders::{reminder_from_row, status_columns};
+use super::tasks::{insert_task, task_from_row};
 use super::*;
 use crate::domain::{
-    AccountId, CalendarId, Event, EventId, EventKey, EventTime, ReminderInstance, ReminderKey,
+    AccountId, CalendarId, Event, EventId, EventTime, ReminderInstance, ReminderKey,
     ReminderOutcome, ReminderStatus, ResponseStatus, Task, TaskId,
 };
 
@@ -146,33 +149,6 @@ fn refuses_newer_database() {
 
 // ---- tasks ---------------------------------------------------------------
 
-fn insert_task(conn: &Connection, t: &Task) -> rusqlite::Result<usize> {
-    conn.execute(
-        "INSERT INTO tasks (id, title, due_at, done, done_at, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![
-            t.id.as_str(),
-            t.title,
-            instant_to_sql(t.due_at),
-            t.done,
-            t.done_at.map(instant_to_sql),
-            instant_to_sql(t.created_at),
-        ],
-    )
-}
-
-fn task_from_row(r: &Row) -> rusqlite::Result<Task> {
-    let done_at: Option<i64> = r.get("done_at")?;
-    Ok(Task {
-        id: TaskId::new(r.get::<_, String>("id")?),
-        title: r.get("title")?,
-        due_at: instant_from_sql(r.get("due_at")?).unwrap(),
-        done: r.get("done")?,
-        done_at: done_at.map(|s| instant_from_sql(s).unwrap()),
-        created_at: instant_from_sql(r.get("created_at")?).unwrap(),
-    })
-}
-
 fn task(id: &str) -> Task {
     Task {
         id: TaskId::new(id),
@@ -236,67 +212,6 @@ fn task_constraints() {
 }
 
 // ---- events --------------------------------------------------------------
-
-fn insert_event(conn: &Connection, e: &Event) -> rusqlite::Result<usize> {
-    let (kind, start_at, end_at, start_date, end_date) = match e.time {
-        EventTime::Timed { start, end } => (
-            "timed",
-            Some(instant_to_sql(start)),
-            Some(instant_to_sql(end)),
-            None,
-            None,
-        ),
-        EventTime::AllDay { start, end } => (
-            "allDay",
-            None,
-            None,
-            Some(date_to_sql(start)),
-            Some(date_to_sql(end)),
-        ),
-    };
-    conn.execute(
-        "INSERT INTO events (account_id, calendar_id, event_id, title, time_kind,
-                             start_at, end_at, start_date, end_date, location, response)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        params![
-            e.account_id.as_str(),
-            e.calendar_id.as_str(),
-            e.id.as_str(),
-            e.title,
-            kind,
-            start_at,
-            end_at,
-            start_date,
-            end_date,
-            e.location,
-            response_to_sql(e.response),
-        ],
-    )
-}
-
-fn event_from_row(r: &Row) -> rusqlite::Result<Event> {
-    let kind: String = r.get("time_kind")?;
-    let time = if kind == "timed" {
-        EventTime::Timed {
-            start: instant_from_sql(r.get("start_at")?).unwrap(),
-            end: instant_from_sql(r.get("end_at")?).unwrap(),
-        }
-    } else {
-        EventTime::AllDay {
-            start: date_from_sql(&r.get::<_, String>("start_date")?).unwrap(),
-            end: date_from_sql(&r.get::<_, String>("end_date")?).unwrap(),
-        }
-    };
-    Ok(Event {
-        id: EventId::new(r.get::<_, String>("event_id")?),
-        account_id: AccountId::new(r.get::<_, String>("account_id")?),
-        calendar_id: CalendarId::new(r.get::<_, String>("calendar_id")?),
-        title: r.get("title")?,
-        time,
-        location: r.get("location")?,
-        response: response_from_sql(&r.get::<_, String>("response")?).unwrap(),
-    })
-}
 
 fn timed_event(id: &str) -> Event {
     Event {
@@ -461,16 +376,7 @@ fn insert_reminder(conn: &Connection, r: &ReminderInstance) -> rusqlite::Result<
         ),
         ReminderKey::Task { task_id } => ("task", None, None, None, None, Some(task_id.as_str())),
     };
-    let (status, until, handled_at, outcome) = match r.status {
-        ReminderStatus::Pending => ("pending", None, None, None),
-        ReminderStatus::Snoozed { until } => ("snoozed", Some(instant_to_sql(until)), None, None),
-        ReminderStatus::Handled { at, outcome } => (
-            "handled",
-            None,
-            Some(instant_to_sql(at)),
-            Some(outcome_to_sql(outcome)),
-        ),
-    };
+    let (status, until, handled_at, outcome) = status_columns(&r.status);
     conn.execute(
         "INSERT INTO reminders (kind, account_id, calendar_id, event_id, lead_minutes, task_id,
                                 due_at, status, snoozed_until, handled_at, outcome)
@@ -489,38 +395,6 @@ fn insert_reminder(conn: &Connection, r: &ReminderInstance) -> rusqlite::Result<
             outcome
         ],
     )
-}
-
-fn reminder_from_row(r: &Row) -> rusqlite::Result<ReminderInstance> {
-    let key = if r.get::<_, String>("kind")? == "meeting" {
-        ReminderKey::Meeting {
-            event: EventKey {
-                account_id: AccountId::new(r.get::<_, String>("account_id")?),
-                calendar_id: CalendarId::new(r.get::<_, String>("calendar_id")?),
-                event_id: EventId::new(r.get::<_, String>("event_id")?),
-            },
-            lead_minutes: r.get("lead_minutes")?,
-        }
-    } else {
-        ReminderKey::Task {
-            task_id: TaskId::new(r.get::<_, String>("task_id")?),
-        }
-    };
-    let status = match r.get::<_, String>("status")?.as_str() {
-        "pending" => ReminderStatus::Pending,
-        "snoozed" => ReminderStatus::Snoozed {
-            until: instant_from_sql(r.get("snoozed_until")?).unwrap(),
-        },
-        _ => ReminderStatus::Handled {
-            at: instant_from_sql(r.get("handled_at")?).unwrap(),
-            outcome: outcome_from_sql(&r.get::<_, String>("outcome")?).unwrap(),
-        },
-    };
-    Ok(ReminderInstance {
-        key,
-        due_at: instant_from_sql(r.get("due_at")?).unwrap(),
-        status,
-    })
 }
 
 fn meeting_key(lead_minutes: u32) -> ReminderKey {
