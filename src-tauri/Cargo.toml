@@ -25,6 +25,11 @@ thiserror = "2"
 # Already in the lockfile (via serde_with); no default features: no oldtime,
 # no wasm-bindgen. `clock` is needed for Local time zone conversion.
 chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+# SQLite for the event cache, tasks and reminder ledger (spec 3). `bundled`
+# compiles SQLite into the binary, so Windows/macOS need no system library and
+# every platform gets the same, recent SQLite (STRICT tables). Default features
+# off: `cache` (statement cache, pulls in hashlink) and the wasm FFI are unused.
+rusqlite = { version = "0.43", default-features = false, features = ["bundled"] }
 
 [dev-dependencies]
 # Already in the dependency tree via tauri; used only by tests.
