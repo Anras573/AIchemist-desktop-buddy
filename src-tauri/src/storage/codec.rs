@@ -93,6 +93,54 @@ pub fn error_kind_to_sql(e: &Error) -> &'static str {
     }
 }
 
+/// The message of an [`Error`] without its kind prefix (column
+/// `sync_state.last_error_message`). For [`Error::Validation`], which has no
+/// single message, this is its `Display` text.
+pub fn error_message(e: &Error) -> String {
+    match e {
+        Error::Auth { message }
+        | Error::Network { message }
+        | Error::Protocol { message }
+        | Error::NotFound { message }
+        | Error::Storage { message }
+        | Error::Keychain { message }
+        | Error::InvalidInput { message }
+        | Error::Internal { message } => message.clone(),
+        Error::Validation { .. } => e.to_string(),
+    }
+}
+
+/// Rebuilds an [`Error`] from its kind tag and message, the inverse of
+/// [`error_kind_to_sql`] and [`error_message`]. A stored validation error
+/// comes back with an empty field list; its text is not kept.
+pub fn error_from_sql(kind: &str, message: String) -> Result<Error> {
+    Ok(match kind {
+        "auth" => Error::Auth { message },
+        "network" => Error::Network { message },
+        "protocol" => Error::Protocol { message },
+        "notFound" => Error::NotFound { message },
+        "storage" => Error::Storage { message },
+        "keychain" => Error::Keychain { message },
+        "invalidInput" => Error::InvalidInput { message },
+        "validation" => Error::Validation { errors: Vec::new() },
+        "internal" => Error::Internal { message },
+        _ => return Err(unknown("error kind", kind)),
+    })
+}
+
+/// Wraps a decoding failure so it can be returned from a rusqlite row
+/// closure. `From<rusqlite::Error> for Error` unwraps it again, so callers
+/// see the original error. (The column index and type in the wrapper are
+/// placeholders; they are never shown.)
+pub fn row_error(e: Error) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Null, Box::new(e))
+}
+
+/// Lifts a domain decoding result into a rusqlite row-closure result.
+pub fn decode<T>(r: Result<T>) -> rusqlite::Result<T> {
+    r.map_err(row_error)
+}
+
 fn unknown(what: &str, value: &str) -> Error {
     // `value` is an enum tag written by this app, never user content.
     Error::storage(format!("unknown {what} in database: {value:?}"))
@@ -160,10 +208,11 @@ mod tests {
             Error::Validation { errors: vec![] },
             Error::internal("x"),
         ] {
-            assert_eq!(
-                serde_json::to_value(&e).unwrap()["kind"],
-                error_kind_to_sql(&e)
-            );
+            let kind = error_kind_to_sql(&e);
+            assert_eq!(serde_json::to_value(&e).unwrap()["kind"], kind);
+            let back = error_from_sql(kind, error_message(&e)).unwrap();
+            assert_eq!(back, e, "round trip of {kind}");
         }
+        assert!(error_from_sql("oops", "x".into()).is_err());
     }
 }
