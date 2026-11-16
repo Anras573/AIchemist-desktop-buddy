@@ -1,7 +1,7 @@
 # AIchemist Desktop Buddy: Specification
 
-> Status: DRAFT for human review. Derived from `docs/human.md` and a Q&A round with the project owner.
-> Items marked **[OPEN]** are unresolved and listed in section 14. The implementing agent must not guess at these. Use the stated default and flag it.
+> Status: Ready for implementation. Derived from `docs/human.md` and Q&A rounds with the project owner.
+> All earlier open questions are resolved. Section 14 records the decisions.
 
 ## 1. Purpose
 
@@ -114,8 +114,8 @@ Real implementations for Graph and CalDAV, plus a **fake provider** for tests. T
 
 ### 7.1 Meeting reminders
 - Delivered as a **speech bubble** from the cat, with the cat entering `alert`.
-- Bubble content: event title, start time (and "in N min"), location if present. **[OPEN] join link, see section 14.**
-- **Lead times:** configurable list, default **10 min and 1 min** before start. **[OPEN] confirm defaults.**
+- Bubble content: event title, start time (and "in N min"), location if present. No join link.
+- **Lead times:** configurable list, default **10 min, 5 min and 1 min** before start.
 - **Actions:** `Dismiss` and `Snooze` (snooze durations configurable, default 5 min). Snoozing re-fires that reminder after the delay. Dismissing marks that reminder instance as handled.
 - Every (event, lead time) pair fires at most once unless snoozed.
 - Events that already started before the app launched should not retroactively fire reminders for lead times that are already past.
@@ -127,7 +127,7 @@ Real implementations for Graph and CalDAV, plus a **fake provider** for tests. T
 - Create **via UI only** (the popover's add form and the right-click menu).
 - Completion tracking: mark done or undone from the popover. Done tasks are listed in a collapsed section and can be deleted.
 - When `due_at` arrives, show a bubble using the same Dismiss/Snooze actions plus `Mark done`.
-- **[OPEN] overdue re-nag behavior, see section 14.** Default for v1: fire once, then show the task as "overdue" in the popover.
+- Overdue tasks fire once, then show as "overdue" in the popover. No re-nag.
 
 ### 7.3 Extension point for external task sources
 Define a `TaskSource` trait with `fetch_tasks() -> [Task]` and an implementation for local storage. Do **not** implement external sources in v1, but structure the code so a source can be added without touching the scheduler.
@@ -137,8 +137,8 @@ Define a `TaskSource` trait with `fetch_tasks() -> [Task]` and an implementation
 - Must be unit-testable with an injected clock.
 
 ### 7.5 Pause and quiet hours
-- "Pause reminders" toggle in the tray: suppresses bubbles while on. Reminders that fell due while paused are **not** replayed on unpause. **[OPEN]**
-- **[OPEN] Quiet hours** (a scheduled do-not-disturb window). Default for v1: setting exists but is off by default.
+- "Pause reminders" toggle in the tray: suppresses bubbles while on. Reminders that fell due while paused are **replayed on unpause**. Task reminders replay. Meeting reminders replay only if the meeting has not yet started. Replays are batched into one bubble, not fired one after another.
+- **Quiet hours** (a scheduled do-not-disturb window): included in v1, setting exists but is off by default.
 
 ## 8. Settings
 
@@ -202,22 +202,22 @@ Each milestone ends in a working, committed state with tests passing.
 6. **M6: Microsoft Graph.** PKCE or device-code auth, provider, `docs/graph-setup.md`, multi-account merging.
 7. **M7: Polish and release.** Launch at login, quiet hours, opt-in update check, perf verification on both platforms, unsigned GitHub release workflow, README with macOS Gatekeeper instructions.
 
-## 14. Open questions for the owner
+## 14. Owner decisions
 
-1. **Lead times:** are 10 min and 1 min the right defaults?
-2. **Join link:** should the meeting bubble show a clickable Teams/Zoom/Meet link? (This was not selected during Q&A. Default is no.)
-3. **Overdue tasks:** fire once, or re-nag every N minutes until handled? (Default is fire once.)
-4. **Paused reminders:** replay missed reminders on unpause, or drop them? (Default is drop.)
-5. **Quiet hours:** include in v1 or defer? (Default is a setting present but off.)
-6. **Multi-monitor:** which monitor does the cat default to? (Default is the primary monitor, bottom-right corner.)
-7. **Unsigned macOS builds:** Gatekeeper will block them. Is documenting the right-click-Open or `xattr` workaround acceptable for v1, or is notarization a requirement?
-8. **Sprite style:** gray tabby is the initial thought. Confirm, or specify other colors or poses for the placeholder generator.
-9. **Sound:** the Settings has a sound toggle. Is there a sound asset to use, or should the agent generate a simple placeholder chime?
+1. **Lead times:** 10, 5 and 1 min.
+2. **Join link:** none in the meeting bubble.
+3. **Overdue tasks:** fire once, no re-nag.
+4. **Paused reminders:** replay on unpause (tasks, and meetings not yet started; batched into one bubble).
+5. **Quiet hours:** included in v1, off by default.
+6. **Multi-monitor:** defaults to the primary monitor, bottom-right corner. Corner and monitor are changeable in Settings.
+7. **Unsigned macOS builds:** v1 ships unsigned. The README documents the right-click-Open and `xattr` workaround. Notarization is not required.
+8. **Sprite style:** gray tabby for the placeholder generator.
+9. **Sound:** the agent generates a simple placeholder chime and bundles it.
 
 ## 15. Instructions for the implementing agent
 
 - Work milestone by milestone. Do not start a milestone until the previous one builds, passes tests and is committed.
-- Do not resolve **[OPEN]** items yourself beyond the stated defaults. List any defaults you relied on in the PR description.
+- If you hit a gap the spec does not cover, pick the simplest option, and list it in the PR description.
 - Keep dependencies few. Justify each new crate or npm package against the memory target.
 - Never commit secrets, tokens, or personal calendar data. Use fixtures with fake data.
 - If a requirement here conflicts with the memory or CPU targets, stop and raise it instead of silently relaxing the target.
