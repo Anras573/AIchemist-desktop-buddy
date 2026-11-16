@@ -13,7 +13,10 @@ body {
   overflow: hidden;
 }
 
-/* Click-through spike placeholders. */
+/* Click-through demo placeholders (task 0.5), replaced by the canvas
+   renderer in task 2.1. Layout matches the window size from
+   src-tauri/src/placement.rs at cat scale 2: 8 px padding, a 96 px cat at
+   the bottom right, the bubble area above it. */
 .hit {
   position: absolute;
   box-sizing: border-box;
@@ -24,8 +27,8 @@ body {
 }
 
 #cat {
-  right: 16px;
-  bottom: 16px;
+  right: 8px;
+  bottom: 8px;
   width: 96px;
   height: 96px;
   background: #f0a040;
@@ -41,8 +44,8 @@ body {
 }
 
 #bubble {
-  right: 16px;
-  bottom: 128px;
+  right: 8px;
+  bottom: 112px;
   width: 200px;
   height: 64px;
   background: #ffffff;

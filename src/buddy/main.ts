@@ -56,6 +56,9 @@ if (cat && bubble) {
 }
 
 window.addEventListener("resize", reportHitRegions);
+// The window starts hidden and is shown once Rust has placed it; report
+// again when it becomes visible in case layout was not final before.
+document.addEventListener("visibilitychange", reportHitRegions);
 reportHitRegions();
 
 export {};

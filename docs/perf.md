@@ -137,6 +137,13 @@ Breakdown of the kept config (one run): app 4.1 / 5.7, WebView2 browser
 33.3 / 43.0, renderer 12.2 / 20.4, storage service 3.1 / 7.6, crashpad
 1.9 / 3.3 (private WS / Private Bytes).
 
+After task 1.A (tray icon, single-instance plugin, window subclass, demo
+page), same machine, release build, kept config, 3 runs: private WS 56.6 /
+55.6 / 58.1 (mean **56.8**), Private Bytes 81.1 / 81.3 / 83.8 (mean 82.1),
+5 processes. About +5 MB private WS over row 15, partly run-to-run noise.
+Idle CPU over 60 s after a 30 s settle: 0 ms for the app and its WebView2
+processes (below the 15.6 ms timer resolution).
+
 ### CI runners
 
 | Date | Runner | Build | Config | Processes | Result |

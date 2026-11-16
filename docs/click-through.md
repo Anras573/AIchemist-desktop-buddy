@@ -206,9 +206,9 @@ editor underneath it.
 - **macOS: the crossing move.** The mouse-move that carries the cursor into
   the cat goes to the app below (it is the event that triggers the switch).
   Later events go to the buddy. In practice it is invisible.
-- **macOS: dock icon.** Hiding the dock icon needs
-  `ActivationPolicy::Accessory` (`skipTaskbar` is Windows/Linux only). That
-  is left to the task that builds the real buddy window.
+- **macOS: dock icon.** Hidden since task 1.A with
+  `ActivationPolicy::Accessory` (`skipTaskbar` is Windows/Linux only). See
+  "Buddy window shell" below.
 - **`macOSPrivateApi`** is enabled (Cargo feature `macos-private-api` and
   `app.macOSPrivateApi`), which Tauri requires for transparent windows on
   macOS. It rules out the Mac App Store, which is not a target.
@@ -216,3 +216,117 @@ editor underneath it.
 - The page calls IPC through `window.__TAURI_INTERNALS__.invoke` to avoid
   adding `@tauri-apps/api` for one call. The real frontend should use the
   package.
+
+## Buddy window shell (task 1.A)
+
+Code: `src-tauri/src/buddy_window.rs` (window behaviour and re-placement),
+`src-tauri/src/placement.rs` (pure placement math, unit-tested),
+`src-tauri/src/tray.rs` (tray / menu bar icon), `src-tauri/src/pause.rs`
+(pause flag).
+
+### Window
+
+- Config: `visible: false` (shown only after it is placed, so it never
+  flashes in the middle of the screen), `focus: false`,
+  `visibleOnAllWorkspaces: true` (macOS only). Size 256 x 232 CSS px, which
+  is what placement computes for the default cat scale (a unit test checks
+  that they match).
+- **Size** (`placement::window_size_css`): width `max(240, 48 * scale) + 16`,
+  height `120 + 48 * scale + 16`. That is the 48 x 48 sprite frame at the
+  cat scale, a 240 x 120 bubble area above it, and 8 px of transparent
+  padding on every side. Scale 1: 256 x 184, scale 2: 256 x 232, scale 8:
+  400 x 520. The page is responsible for drawing the cat at the bottom of
+  the window and the bubble above it, on the side of the configured corner.
+- **Position**: the configured corner of the configured monitor's work area
+  (excludes taskbar, menu bar and Dock), 8 CSS px from the edges. `monitor:
+  None` or a monitor that is not connected means the primary monitor.
+  Windows works in physical pixels with the monitor's scale factor; macOS
+  works in points (see the module docs of `placement.rs` for why).
+- **Re-placement** is event-driven, never polled: `ScaleFactorChanged`,
+  `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE(SPI_SETWORKAREA)` on Windows
+  (taskbar moved, resized or set to auto-hide; monitors added or removed),
+  `NSApplicationDidChangeScreenParametersNotification` on macOS, and
+  `buddy_window::set_appearance`. The work runs from the event loop, not
+  inside the window procedure.
+- **Windows: `WS_EX_TOOLWINDOW`.** Hides the buddy from Alt+Tab and Task
+  View, and Windows shows tool windows on every virtual desktop. Tao rewrites
+  the extended style whenever it changes window flags (for example on
+  show), so a window subclass adds the bit back in `WM_STYLECHANGING`.
+  Checked: the style is still set after `show()`.
+- **Focus.** On Windows, `focus: false` makes tao show the window with
+  `SW_SHOWNOACTIVATE`. On macOS the app is an accessory app and is not
+  activated by showing a window.
+- **macOS.** `ActivationPolicy::Accessory`: no Dock icon, no app menu, not
+  in Cmd+Tab. `visibleOnAllWorkspaces` sets `CanJoinAllSpaces`. The window
+  does not appear over other apps' full-screen Spaces (that would need
+  `FullScreenAuxiliary`; not done, open question for the owner).
+
+### Tray / menu bar
+
+Menu: Open Settings (stub, logs; task 2.4), Upcoming (emits `open-popover`
+with `"upcoming"` to the buddy window), Pause reminders (check item; toggles
+the in-memory flag and emits `paused-changed`), separator, Quit. The icon is
+the app icon (`default_window_icon`), marked as a template image on macOS so
+the menu bar draws the cat-head silhouette in its own colours. Left-click
+also opens the menu. `tray::set_error` adds a disabled status line at the top
+of the menu and a second tooltip line (for task 3.5).
+
+### Single instance
+
+`tauri-plugin-single-instance`: a second launch exits with code 0 before it
+creates a window. Windows: named mutex. macOS: a Unix socket in `/tmp`.
+
+### Verified on Windows (2026-11-16, Windows 11 23H2, 3440 x 1440 at 100%)
+
+Release build:
+
+- [x] Window at 3176,1152, 256 x 232: bottom-right of the primary monitor
+  (work area 3440 x 1392), 8 px above the taskbar and from the right edge.
+- [x] Not in the taskbar (UI Automation list of taskbar buttons), extended
+  style has `WS_EX_TOOLWINDOW` and `WS_EX_TOPMOST`.
+- [x] Showing it does not take focus (foreground window unchanged, 5 of 5
+  launches).
+- [x] Click-through: `WindowFromPoint` in the empty part of the window
+  returns the app underneath; on the cat it returns the buddy.
+- [x] Tray icon in the notification area (overflow), tooltip
+  "AIchemist Buddy", menu with the four items. Pause shows its check mark
+  after one click and clears it after a second. Quit exits the app and its
+  WebView2 processes.
+- [x] A second launch exits (code 0) and the first keeps running.
+- [x] Re-placement: after moving the window away, `WM_SETTINGCHANGE` with
+  `SPI_SETWORKAREA` and `WM_DISPLAYCHANGE` each put it back in the corner;
+  an unrelated `WM_SETTINGCHANGE` does not.
+- [ ] Not tested: scale factors above 100%, a second monitor, a real
+  taskbar move, virtual desktops (Win+Ctrl+Left/Right should keep the cat
+  visible on every desktop). Owner: please check these by hand.
+
+### Manual test checklist for macOS (task 1.A)
+
+Run as above (`npm run tauri dev`, or the `.app` bundle).
+
+1. [ ] No Dock icon, and the app is not in Cmd+Tab.
+2. [ ] The window appears in the bottom-right of the main screen, above the
+   Dock (if the Dock is at the bottom), 8 points from the edges, and never
+   flashes in the middle of the screen at start.
+3. [ ] Launching does not take focus from the frontmost app (keep typing in
+   a text editor while it starts).
+4. [ ] Switch Spaces (Ctrl+Left/Right): the cat stays visible on every
+   Space. Note whether it shows over a full-screen app (expected: no).
+5. [ ] Menu bar icon: the cat-head silhouette, drawn in the menu bar's
+   colour (template), correct in light and dark mode. Click opens the menu:
+   Open Settings, Upcoming, Pause reminders, Quit.
+6. [ ] Pause reminders shows a check mark after one click and clears it
+   after a second.
+7. [ ] Quit exits the app.
+8. [ ] Launch the app again while it runs (`open -n` the bundle, or run the
+   binary twice): the second copy exits and no second cat appears.
+9. [ ] Move the Dock to the left/right or change its size, and turn Dock
+   auto-hide on and off: note whether the cat moves to stay clear of it
+   (depends on whether macOS posts the screen-parameters notification for
+   Dock changes).
+10. [ ] With a second display: unplug it while the buddy is configured for
+    it (or rearrange displays in System Settings); the cat moves to the main
+    screen without a restart.
+11. [ ] On a Retina display, the window is 256 x 232 points and the cat box
+    sits in its bottom-right corner (no clipping).
+12. [ ] Idle CPU still 0.0% in Activity Monitor after these steps.
