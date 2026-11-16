@@ -2,13 +2,52 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* The window is transparent; only the hit regions are drawn. */
+  background: transparent;
 }
 
 body {
+  font-family: system-ui, sans-serif;
+  color: #1e1e1e;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Click-through spike placeholders. */
+.hit {
+  position: absolute;
+  box-sizing: border-box;
   display: grid;
   place-items: center;
-  font-family: system-ui, sans-serif;
-  background: transparent;
-  color: #e6e6e6;
-  user-select: none;
+  border-radius: 8px;
+  border: 2px solid #1e1e1e;
+}
+
+#cat {
+  right: 16px;
+  bottom: 16px;
+  width: 96px;
+  height: 96px;
+  background: #f0a040;
+  cursor: pointer;
+}
+
+#cat.hover {
+  background: #ffd080;
+}
+
+#cat.menu {
+  background: #80c0ff;
+}
+
+#bubble {
+  right: 16px;
+  bottom: 128px;
+  width: 200px;
+  height: 64px;
+  background: #ffffff;
+}
+
+#bubble[hidden] {
+  display: none;
 }
