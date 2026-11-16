@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "buddy",
-  "description": "Permissions for the buddy window. Intentionally empty: grant only the IPC commands the buddy needs, as later tasks add them (spec section 9).",
+  "description": "Permissions for the buddy window. Grant only the IPC commands the buddy needs (spec section 9).",
   "windows": ["buddy"],
-  "permissions": []
+  "permissions": ["allow-set-hit-regions"]
 }

@@ -10,12 +10,23 @@ pub mod scheduler;
 pub mod state_machine;
 pub mod storage;
 
+use tauri::Manager;
+
+pub mod click_through;
+
 /// Label of the buddy window declared in `tauri.conf.json`.
 pub const BUDDY_WINDOW_LABEL: &str = "buddy";
 
 /// Builds and runs the Tauri application. Blocks until the app exits.
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![click_through::set_hit_regions])
+        .setup(|app| {
+            if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
+                click_through::init(app.handle(), &buddy)?;
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running the Tauri application");
 }
