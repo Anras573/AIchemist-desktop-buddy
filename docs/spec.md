@@ -216,7 +216,9 @@ Each milestone ends in a working, committed state with tests passing.
 
 ## 15. Instructions for the implementing agent
 
-- Work milestone by milestone. Do not start a milestone until the previous one builds, passes tests and is committed.
+- Work is split into phases and tasks tracked in beads, and may run in parallel. A task starts only when the tasks it depends on are merged. Milestones (section 13) remain release checkpoints: each ends in a working state with tests passing.
+- Shared contracts (domain types, the `CalendarProvider`, `TaskSource` and `Clock` traits, IPC command signatures) are frozen once they are merged. Agents working in parallel build against them and must not change them. A needed change is raised with the orchestrator, who makes it.
+- Each parallel task runs on its own branch or worktree and touches only the modules it owns. Merge through a PR with passing CI and a review.
 - If you hit a gap the spec does not cover, pick the simplest option, and list it in the PR description.
 - Keep dependencies few. Justify each new crate or npm package against the memory target.
 - Never commit secrets, tokens, or personal calendar data. Use fixtures with fake data.
