@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AIchemist Desktop Buddy sprite pack",
+  "description": "pack.json of a sprite pack. See docs/sprite-pack.md. Rules that need the PNG files (image size) are checked by tools/check-sprites.mjs.",
+  "type": "object",
+  "required": ["format", "name", "author", "license", "frameSize", "states"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": {
+      "description": "Pack format version. Only 1 exists.",
+      "const": 1
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "license": {
+      "description": "License of the art, ideally an SPDX identifier such as MIT or CC-BY-4.0.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "frameSize": {
+      "description": "Size of one frame in pixels. All states share it.",
+      "type": "object",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 8, "maximum": 256 },
+        "height": { "type": "integer", "minimum": 8, "maximum": 256 }
+      }
+    },
+    "states": {
+      "type": "object",
+      "required": ["idle", "sleeping", "thinking", "alert"],
+      "additionalProperties": false,
+      "properties": {
+        "idle": { "$ref": "#/$defs/state" },
+        "sleeping": { "$ref": "#/$defs/state" },
+        "thinking": { "$ref": "#/$defs/state" },
+        "alert": { "$ref": "#/$defs/state" }
+      }
+    }
+  },
+  "$defs": {
+    "state": {
+      "type": "object",
+      "required": ["file", "frames", "fps", "loop"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "description": "PNG file name in the pack folder (no directories). Frames are laid out left to right in one row.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*\\.png$"
+        },
+        "frames": {
+          "description": "Number of frames in the strip.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "fps": {
+          "description": "Playback rate. 0 means a static frame (only frame 0 is shown).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "loop": {
+          "description": "true: repeat. false: play once and hold the last frame.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
