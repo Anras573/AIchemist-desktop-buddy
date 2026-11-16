@@ -19,6 +19,12 @@ tauri-build = { version = "2.7.5", features = [] }
 
 [dependencies]
 tauri = { version = "2.12.6", features = [] }
+# Already in the tree via tauri / tauri-utils; listed so domain types can use them.
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+# Already in the lockfile (via serde_with); no default features: no oldtime,
+# no wasm-bindgen. `clock` is needed for Local time zone conversion.
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 
 [dev-dependencies]
 # Already in the dependency tree via tauri; used only by tests.

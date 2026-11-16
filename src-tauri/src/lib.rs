@@ -1,7 +1,11 @@
 //! AIchemist Desktop Buddy core.
 //!
-//! Scaffold only: the scheduler, providers, storage and state machine are
-//! added by later tasks.
+//! [`domain`] holds the frozen shared contracts (types, traits, IPC contract).
+//! The scheduler, providers, storage and state machine are added by later
+//! tasks and build against it.
+
+#[deny(missing_docs)]
+pub mod domain;
 
 /// Label of the buddy window declared in `tauri.conf.json`.
 pub const BUDDY_WINDOW_LABEL: &str = "buddy";
