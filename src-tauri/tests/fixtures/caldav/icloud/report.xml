@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<multistatus xmlns="DAV:">
+  <response xmlns="DAV:">
+    <href>/1234567890/calendars/home/0F1E2D3C-0000-4000-8000-000000000001.ics</href>
+    <propstat>
+      <prop>
+        <getetag xmlns="DAV:">"mf2k1p3q"</getetag>
+        <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iPhone OS 18.0//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:Europe/Copenhagen
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+DTSTART:19810329T020000
+TZNAME:CEST
+TZOFFSETTO:+0200
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+DTSTART:19961027T030000
+TZNAME:CET
+TZOFFSETTO:+0100
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:0F1E2D3C-0000-4000-8000-000000000001
+DTSTAMP:20261110T090000Z
+DTSTART;TZID=Europe/Copenhagen:20261117T100000
+DTEND;TZID=Europe/Copenhagen:20261117T103000
+SUMMARY:Dentist &lt;checkup&gt;
+LOCATION:Main Street 1
+END:VEVENT
+END:VCALENDAR
+</calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response xmlns="DAV:">
+    <href>/1234567890/calendars/home/0F1E2D3C-0000-4000-8000-000000000002.ics</href>
+    <propstat>
+      <prop>
+        <getetag xmlns="DAV:">"mf2k1p3r"</getetag>
+        <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//macOS 15.0//EN
+BEGIN:VEVENT
+UID:0F1E2D3C-0000-4000-8000-000000000002
+DTSTAMP:20261101T090000Z
+DTSTART:20261102T070000Z
+DTEND:20261102T071500Z
+RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+SUMMARY:Run
+END:VEVENT
+END:VCALENDAR
+</calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response xmlns="DAV:">
+    <href>/1234567890/calendars/home/0F1E2D3C-0000-4000-8000-000000000003.ics</href>
+    <propstat>
+      <prop>
+        <getetag xmlns="DAV:">"mf2k1p3s"</getetag>
+        <calendar-data xmlns="urn:ietf:params:xml:ns:caldav">BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//macOS 15.0//EN
+BEGIN:VEVENT
+UID:0F1E2D3C-0000-4000-8000-000000000003
+DTSTAMP:20261101T090000Z
+DTSTART;VALUE=DATE:20261120
+DTEND;VALUE=DATE:20261121
+SUMMARY:Day off
+END:VEVENT
+END:VCALENDAR
+</calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>

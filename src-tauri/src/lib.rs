@@ -4,6 +4,7 @@
 //! The scheduler, providers, storage and state machine are added by later
 //! tasks and build against it.
 
+pub mod caldav;
 #[deny(missing_docs)]
 pub mod domain;
 pub mod graph;

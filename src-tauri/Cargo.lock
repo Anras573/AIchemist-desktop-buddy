@@ -32,6 +32,8 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "percent-encoding",
+ "quick-xml",
  "rusqlite",
  "serde",
  "serde_json",
@@ -41,6 +43,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "thiserror 2.0.21",
  "ureq",
+ "url",
  "windows",
  "windows-native-keyring-store",
 ]

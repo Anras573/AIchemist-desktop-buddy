@@ -58,6 +58,15 @@ base64 = { version = "0.23", default-features = false, features = ["alloc"] }
 # loopback redirect query.
 form_urlencoded = "1"
 
+# CalDAV (src/caldav) shares the ureq and base64 entries above (Basic auth).
+# Already in the tree via tauri-utils (plist): namespace-aware XML reader for
+# WebDAV multistatus responses.
+quick-xml = "0.42"
+# Already in the tree via tauri: href/redirect resolution.
+url = "2.5"
+# Already in the tree via url: decoding calendar names from paths.
+percent-encoding = "2"
+
 # Click-through (src/click_through.rs). Same versions tauri/tao already use,
 # so these add no new crates, only a few extra API features.
 [target.'cfg(windows)'.dependencies]
