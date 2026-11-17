@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<d:multistatus xmlns:d="DAV:" xmlns:s="http://sabredav.org/ns" xmlns:cal="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
+ <d:response>
+  <d:href>/remote.php/dav/calendars/testuser/personal/declined-standup.ics</d:href>
+  <d:propstat>
+   <d:prop>
+    <d:getetag>&quot;0a1b2c3d4e5f&quot;</d:getetag>
+    <cal:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+PRODID:-//Nextcloud calendar v5.0.0&#13;
+BEGIN:VEVENT&#13;
+UID:declined-standup@example.com&#13;
+DTSTAMP:20261110T090000Z&#13;
+DTSTART:20261118T080000Z&#13;
+DTEND:20261118T081500Z&#13;
+SUMMARY:Stand-up&#13;
+ORGANIZER;CN=Organizer:mailto:organizer@example.com&#13;
+ATTENDEE;CN=Test User;PARTSTAT=DECLINED:mailto:test.user@example.com&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</cal:calendar-data>
+   </d:prop>
+   <d:status>HTTP/1.1 200 OK</d:status>
+  </d:propstat>
+ </d:response>
+ <d:response>
+  <d:href>/remote.php/dav/calendars/testuser/personal/cancelled.ics</d:href>
+  <d:propstat>
+   <d:prop>
+    <d:getetag>&quot;1a1b2c3d4e5f&quot;</d:getetag>
+    <cal:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+PRODID:-//Nextcloud calendar v5.0.0&#13;
+BEGIN:VEVENT&#13;
+UID:cancelled@example.com&#13;
+DTSTAMP:20261110T090000Z&#13;
+DTSTART:20261119T120000Z&#13;
+DTEND:20261119T130000Z&#13;
+SUMMARY:Lunch&#13;
+STATUS:CANCELLED&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</cal:calendar-data>
+   </d:prop>
+   <d:status>HTTP/1.1 200 OK</d:status>
+  </d:propstat>
+ </d:response>
+ <d:response>
+  <d:href>/remote.php/dav/calendars/testuser/personal/broken.ics</d:href>
+  <d:propstat>
+   <d:prop>
+    <d:getetag>&quot;2a1b2c3d4e5f&quot;</d:getetag>
+    <cal:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+BEGIN:VEVENT&#13;
+UID:broken@example.com&#13;
+SUMMARY:No start date&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</cal:calendar-data>
+   </d:prop>
+   <d:status>HTTP/1.1 200 OK</d:status>
+  </d:propstat>
+ </d:response>
+ <d:response>
+  <d:href>/remote.php/dav/calendars/testuser/personal/review.ics</d:href>
+  <d:propstat>
+   <d:prop>
+    <d:getetag>&quot;3a1b2c3d4e5f&quot;</d:getetag>
+    <cal:calendar-data><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Nextcloud calendar v5.0.0
+BEGIN:VEVENT
+UID:review@example.com
+DTSTAMP:20261110T090000Z
+DTSTART:20261120T130000Z
+DTEND:20261120T140000Z
+SUMMARY:Design review <draft>
+LOCATION:Room 4
+ORGANIZER;CN=Organizer:mailto:organizer@example.com
+ATTENDEE;CN=Test User;PARTSTAT=ACCEPTED:mailto:TEST.USER@example.com
+END:VEVENT
+END:VCALENDAR
+]]></cal:calendar-data>
+   </d:prop>
+   <d:status>HTTP/1.1 200 OK</d:status>
+  </d:propstat>
+ </d:response>
+</d:multistatus>
