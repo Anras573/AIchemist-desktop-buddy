@@ -264,7 +264,7 @@ Code: `src-tauri/src/buddy_window.rs` (window behaviour and re-placement),
 
 ### Tray / menu bar
 
-Menu: Open Settings (stub, logs; task 2.4), Upcoming (emits `open-popover`
+Menu: Open Settings (opens or focuses the settings window, task 2.4), Upcoming (emits `open-popover`
 with `"upcoming"` to the buddy window), Pause reminders (check item; toggles
 the in-memory flag and emits `paused-changed`), separator, Quit. The icon is
 the app icon (`default_window_icon`), marked as a template image on macOS so
@@ -276,6 +276,11 @@ of the menu and a second tooltip line (for task 3.5).
 
 `tauri-plugin-single-instance`: a second launch exits with code 0 before it
 creates a window. Windows: named mutex. macOS: a Unix socket in `/tmp`.
+Since task 2.4 the running instance then shows a small native notice,
+"AIchemist Buddy is already running.", with a hint where to find it
+(`src-tauri/src/already_running.rs`): `MessageBoxW` on its own thread on
+Windows, `NSAlert` on the main thread on macOS, a log line on Linux. Only
+one notice at a time; launches while it shows are ignored.
 
 ### Verified on Windows (2026-11-16, Windows 11 23H2, 3440 x 1440 at 100%)
 
@@ -320,7 +325,8 @@ Run as above (`npm run tauri dev`, or the `.app` bundle).
    after a second.
 7. [ ] Quit exits the app.
 8. [ ] Launch the app again while it runs (`open -n` the bundle, or run the
-   binary twice): the second copy exits and no second cat appears.
+   binary twice): the second copy exits and no second cat appears. (Since
+   task 2.4: see item 8 of the task 2.4 checklist for the notice.)
 9. [ ] Move the Dock to the left/right or change its size, and turn Dock
    auto-hide on and off: note whether the cat moves to stay clear of it
    (depends on whether macOS posts the screen-parameters notification for
@@ -378,3 +384,73 @@ Release build:
 5. [ ] Activity Monitor: CPU of the app and its WebKit processes while the
    cat animates (idle) and while it sleeps. Record the numbers in
    `docs/perf.md`.
+
+## Settings window (task 2.4)
+
+Code: `src-tauri/src/settings_service.rs` (load, merge, validate, save,
+listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.rs`
+(window lifecycle, `list_monitors`), `src-tauri/src/logger.rs` (log file),
+`src/settings/` (page).
+
+- **Lifecycle.** `tray::open_settings` (tray menu; later the cat menu and the
+  `open_settings` command) creates the `settings` window on demand: decorated, resizable,
+  560 x 680, centered, title "AIchemist Buddy Settings". If it exists it is
+  unminimized and focused. Closing it uses Tauri's default close, which
+  destroys the window and its webview; nothing hides it. It is built with the
+  buddy's `additionalBrowserArgs`, because WebView2 refuses a second
+  environment with different options on the same user data folder.
+- **Capabilities.** `capabilities/settings.json` grants the settings window
+  `get_settings`, `update_settings` and `list_monitors`, nothing else. The
+  buddy capability is unchanged.
+- **Apply on change.** Every `change` event sends the whole form. The core
+  validates; on error the page shows the messages next to the fields and
+  nothing is saved. On success the file is written atomically, the buddy is
+  re-placed (appearance) and listeners registered with
+  `settings_service::on_settings_changed` are called with `(old, new)`.
+- **Log file.** `app_log_dir()/aichemist-buddy.log`, rotated to
+  `aichemist-buddy.old.log` at 1 MB. Info and up for this crate, warn and up
+  for dependencies. Windows: `%LOCALAPPDATA%\io.github.anras573.aichemistbuddy\logs`,
+  macOS: `~/Library/Logs/io.github.anras573.aichemistbuddy`.
+
+### Verified on Windows (2026-11-17, release build, UI Automation)
+
+- [x] Opening twice gives one window only.
+- [x] A second launch shows "AIchemist Buddy is already running." (from the
+  first instance) and exits with code 0; launches while the notice shows
+  open no second notice.
+- [x] Cat size slider 2 -> 4: the buddy resizes live (256 x 232 -> 256 x 328)
+  and stays in the corner.
+- [x] Corner "Top left": the buddy moves live to 8,8.
+- [x] Lead times "10, 500, 10": the field shows "entry 2: must be between 0
+  and 120; entry 3: duplicate value" and the file keeps `[10, 5, 1]`.
+- [x] Settings persist across a restart (`settings.json` in
+  `%APPDATA%\<identifier>`; the buddy starts at the saved size and corner).
+- [x] An invalid file (`catScale: 99`) loads with the default appearance and
+  logs a warning with the field path only.
+- [x] Closing the window destroys it: the window and its renderer process
+  are gone; memory in `docs/perf.md`.
+- Window checks above were driven through the same `tray::open_settings`
+  call as the tray item (a temporary test hook in an earlier revision of
+  this PR).
+
+### Manual test checklist for macOS (task 2.4)
+
+1. [ ] Menu bar icon > Open Settings: the window opens centered, in front,
+   with focus (the app is an accessory app; note if it opens behind the
+   frontmost app).
+2. [ ] Open Settings again while it is open: the same window comes to the
+   front; no second window.
+3. [ ] Change the cat size: the cat resizes live. Change the corner: it moves
+   live. Pick a second display in Monitor (if any): it moves there.
+4. [ ] Enter `10, 500` as lead times and leave the field: an error shows
+   under it and `~/Library/Application Support/io.github.anras573.aichemistbuddy/settings.json`
+   is unchanged.
+5. [ ] Quit and relaunch: the changed settings are kept.
+6. [ ] Close the window (red button or Cmd+W): in Activity Monitor the extra
+   WebContent process goes away and the app's memory returns to about the
+   idle number (`tools/measure-memory.sh --pid PID` before, while open,
+   after).
+7. [ ] Light and dark mode both render the form legibly.
+8. [ ] Launch the app a second time while it runs: an alert "AIchemist Buddy
+   is already running. Find it in the menu bar." appears in front; click OK.
+   Launch twice quickly: only one alert. No second cat appears.

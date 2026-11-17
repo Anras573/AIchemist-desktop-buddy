@@ -23,6 +23,11 @@
 .PARAMETER ProcessName
   Process name (without .exe) to look for when -ExePath is not given.
 
+.PARAMETER ProcessId
+  Measure the running instance with this PID (and leave it running). Use it
+  when more than one instance runs, e.g. side by side builds with different
+  identifiers.
+
 .PARAMETER SettleSeconds
   Idle time before measuring. Default 30.
 
@@ -36,6 +41,7 @@
 param(
     [string]$ExePath,
     [string]$ProcessName = 'aichemist-desktop-buddy',
+    [int]$ProcessId = 0,
     [int]$SettleSeconds = 30,
     [string]$Json
 )
@@ -46,6 +52,8 @@ $launched = $null
 if ($ExePath) {
     $launched = Start-Process -FilePath (Resolve-Path $ExePath) -PassThru
     $rootId = $launched.Id
+} elseif ($ProcessId -gt 0) {
+    $rootId = $ProcessId
 } else {
     $p = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $p) { throw "No running process named '$ProcessName'." }

@@ -4,7 +4,7 @@
 //! Everything is handled in Rust; the webviews need no permission for it.
 //!
 //! Hooks for later tasks:
-//! - [`open_settings`]: stub until task 2.4 creates the settings window.
+//! - [`open_settings`]: opens the settings window ([`crate::settings_window`]).
 //! - [`set_error`]: error indicator (task 3.5), shown as a disabled first
 //!   menu item and in the tooltip.
 //! - [`sync_paused`]: keeps the check mark in sync; called by
@@ -107,10 +107,11 @@ fn on_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
     }
 }
 
-/// Opens the settings window. Stub: task 2.4 creates the window on demand
-/// (and destroys it on close, spec 4.5).
-pub fn open_settings<R: Runtime>(_app: &AppHandle<R>) {
-    eprintln!("open_settings: the settings window is not implemented yet (task 2.4)");
+/// Opens the settings window, or focuses it if it is open. It is created on
+/// demand and destroyed when closed (spec 4.5). Also the entry point for the
+/// cat menu and the `open_settings` command.
+pub fn open_settings<R: Runtime>(app: &AppHandle<R>) {
+    crate::settings_window::open(app);
 }
 
 /// Sets the check mark of "Pause reminders".

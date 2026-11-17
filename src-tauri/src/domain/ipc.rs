@@ -157,6 +157,10 @@ pub mod command {
     pub const SIGN_IN_ACCOUNT: &str = "sign_in_account";
     /// Start a sync now. Request: none. Response: `()` (returns immediately).
     pub const SYNC_NOW: &str = "sync_now";
+    /// Connected monitors, for the appearance monitor selector. Request:
+    /// none. Response: `Vec<`[`MonitorInfo`](super::MonitorInfo)`>`, primary
+    /// first. (Added 2026-11-17, first approved contract change.)
+    pub const LIST_MONITORS: &str = "list_monitors";
 }
 
 /// Event names (core to webview). Each constant documents its payload type.
@@ -295,6 +299,10 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
     CommandSpec {
         name: command::SYNC_NOW,
+        windows: SETTINGS,
+    },
+    CommandSpec {
+        name: command::LIST_MONITORS,
         windows: SETTINGS,
     },
 ];
@@ -559,6 +567,20 @@ pub struct UpdateAccountRequest {
     pub included_calendars: Vec<CalendarId>,
     /// New CalDAV password; `None` keeps the stored one.
     pub secret: Option<SecretString>,
+}
+
+/// A connected monitor, for [`command::LIST_MONITORS`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorInfo {
+    /// Name as stored in [`AppearanceSettings::monitor`].
+    pub name: String,
+    /// Whether this is the primary monitor.
+    pub primary: bool,
+    /// Width in physical pixels.
+    pub width: u32,
+    /// Height in physical pixels.
+    pub height: u32,
 }
 
 /// Request naming an account.

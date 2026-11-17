@@ -41,7 +41,9 @@ The script launches the app, waits 30 s (`-SettleSeconds`), walks the process
 tree, prints private working set, Private Bytes and (for reference only) the
 full working set per process plus a `TOTAL` line, then stops the app. Without
 `-ExePath` it measures an already running instance and leaves it running.
-`-Json path` also writes the result as JSON.
+`-Json path` also writes the result as JSON. `-ProcessId PID` measures one
+specific running instance (when several builds with different identifiers
+run side by side).
 
 ### macOS
 
@@ -204,6 +206,26 @@ relaxed. Options, cheapest first:
 5. GPU on: measured, no gain, +19 MB private WS. Rejected.
 6. Native drawing (layered window): removes the webview cost entirely;
    large cost (see options below).
+
+### Settings window (task 2.4), Windows, local desktop
+
+Same machine, release build, kept config, 30 s settle per measurement,
+settings window opened through `tray::open_settings` (from a temporary test
+hook) and closed through UI Automation (`WindowPattern.Close`, same as the
+close button). Private WS / Private Bytes, MB. Runs 1-2: before task 2.1
+(placeholder buddy page); run 3: on top of task 2.1 (canvas renderer).
+
+| Run | Before (idle) | Settings open | After close | After 4 more open/close cycles |
+|---|---|---|---|---|
+| 1 | 52.6 / 77.6 (5 proc.) | 78.9 / 114.7 (6) | 58.7 / 84.5 (5) | |
+| 2 | 49.7 / 74.9 (5) | 72.1 / 106.9 (6) | 54.2 / 80.7 (5) | 55.0 / 81.5 (5) |
+| 3 (with 2.1) | 50.9 / 74.6 (5) | 69.2 / 104.5 (6) | 53.0 / 79.3 (5) | 53.5 / 79.8 (5) |
+
+The open window adds one WebView2 renderer (~17 MB private WS) and ~4-7 MB
+in the shared browser process. Closing destroys the window and its renderer;
+what stays (~+5 MB, mostly the browser process keeping heap it grew) does not
+grow with further open/close cycles. The idle state with no settings window
+stays well under 80 MB.
 
 ### CI runners
 

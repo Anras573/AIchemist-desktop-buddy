@@ -12,6 +12,12 @@ who makes the change in its own PR. Downstream code adds its own modules next to
 imports from it. The compiler enforces rustdoc on every public item in `domain` through
 `#[deny(missing_docs)]`.
 
+### Approved changes
+
+| Date | Change | Task |
+|---|---|---|
+| 2026-11-17 | Command `list_monitors` (settings window; no request; response `Vec<MonitorInfo>` with `name`, `primary`, `width`, `height` in physical pixels, primary first) and type `ipc::MonitorInfo`. Additive. First approved contract change. | 2.4 (PR #19) |
+
 ## Contents
 
 | Module | Items |
@@ -58,7 +64,7 @@ RFC 3339 UTC. A failed command rejects with a serialized `Error`.
 | Window | Commands |
 |---|---|
 | buddy (including its popover) | `get_buddy_state`, `report_interaction`, `get_appearance`, `get_current_bubble`, `dismiss_bubble`, `snooze_bubble`, `snooze_all`, `list_upcoming`, `list_tasks`, `create_task`, `update_task`, `set_task_done`, `delete_task`, `get_paused`, `set_paused`, `show_cat_menu`, `open_settings` |
-| settings | `get_settings`, `update_settings`, `list_accounts`, `add_account`, `update_account`, `remove_account`, `list_account_calendars`, `test_connection`, `sign_in_account`, `sync_now` |
+| settings | `get_settings`, `update_settings`, `list_accounts`, `add_account`, `update_account`, `remove_account`, `list_account_calendars`, `test_connection`, `sign_in_account`, `sync_now`, `list_monitors` |
 
 | Event | Payload | To |
 |---|---|---|
