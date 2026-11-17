@@ -113,8 +113,9 @@ pub fn merge(current: &Settings, request: UpdateSettingsRequest) -> Settings {
 }
 
 /// Loads the settings, keeps the service in managed state and wires the
-/// appearance to the buddy window. Returns the loaded settings. Call once
-/// during setup, before `buddy_window::init`.
+/// appearance to the buddy window and the idle timeout to the buddy state
+/// runtime. Returns the loaded settings. Call once during setup, after
+/// `buddy_state::init` and before `buddy_window::init`.
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Settings {
     let service = match app.path().app_config_dir() {
         Ok(dir) => SettingsService::load(&dir.join(SETTINGS_FILE_NAME)),
@@ -128,8 +129,20 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Settings {
         if old.appearance != new.appearance {
             crate::buddy_window::set_appearance(&handle, new.appearance.clone());
         }
+        let idle = new.system.sleep_after_idle_minutes;
+        if old.system.sleep_after_idle_minutes != idle {
+            crate::buddy_state::set_sleep_after_idle_minutes(&handle, idle);
+        }
     });
     let settings = service.current();
+    // Debug builds keep `AICHEMIST_SLEEP_AFTER_IDLE_SECS` (see buddy_state)
+    // for testing; otherwise the saved idle timeout applies from the start.
+    if !(cfg!(debug_assertions) && std::env::var_os("AICHEMIST_SLEEP_AFTER_IDLE_SECS").is_some()) {
+        crate::buddy_state::set_sleep_after_idle_minutes(
+            app,
+            settings.system.sleep_after_idle_minutes,
+        );
+    }
     app.manage(service);
     settings
 }

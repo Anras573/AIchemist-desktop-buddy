@@ -53,9 +53,10 @@ pub fn run() {
             if let Ok(dir) = app.path().app_log_dir() {
                 logger::init(&dir);
             }
-            let settings = settings_service::init(app.handle());
             pause::init(app.handle());
+            // Before the settings service, which applies the idle timeout.
             buddy_state::init(app.handle());
+            let settings = settings_service::init(app.handle());
             if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
                 click_through::init(app.handle(), &buddy)?;
                 buddy_window::init(app.handle(), &buddy, settings.appearance)?;
