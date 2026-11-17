@@ -2,7 +2,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  /* The window is transparent; only the hit regions are drawn. */
+  /* The window is transparent; only the cat and the bubble are drawn. */
   background: transparent;
 }
 
@@ -13,44 +13,41 @@ body {
   overflow: hidden;
 }
 
-/* Click-through demo placeholders (task 0.5), replaced by the canvas
-   renderer in task 2.1. Layout matches the window size from
-   src-tauri/src/placement.rs at cat scale 2: 8 px padding, a 96 px cat at
-   the bottom right, the bubble area above it. */
-.hit {
-  position: absolute;
-  box-sizing: border-box;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  border: 2px solid #1e1e1e;
+/* Layout matches src-tauri/src/placement.rs: 8 px padding on every side,
+   the cat at the bottom on the side of the configured corner, the
+   240 x 120 bubble area above it. --cat-height is set by main.ts. */
+#buddy {
+  --pad: 8px;
+  --cat-height: 96px;
+  position: fixed;
+  inset: 0;
 }
 
 #cat {
-  right: 8px;
-  bottom: 8px;
+  position: absolute;
+  bottom: var(--pad);
   width: 96px;
   height: 96px;
-  background: #f0a040;
+  image-rendering: pixelated;
   cursor: pointer;
 }
 
-#cat.hover {
-  background: #ffd080;
-}
-
-#cat.menu {
-  background: #80c0ff;
-}
-
 #bubble {
-  right: 8px;
-  bottom: 112px;
-  width: 200px;
-  height: 64px;
-  background: #ffffff;
+  position: absolute;
+  bottom: calc(var(--pad) + var(--cat-height));
+  max-width: 240px;
+  max-height: 120px;
+  box-sizing: border-box;
 }
 
 #bubble[hidden] {
   display: none;
+}
+
+#buddy[data-side="right"] > * {
+  right: var(--pad);
+}
+
+#buddy[data-side="left"] > * {
+  left: var(--pad);
 }

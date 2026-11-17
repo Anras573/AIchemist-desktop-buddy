@@ -144,6 +144,67 @@ page), same machine, release build, kept config, 3 runs: private WS 56.6 /
 Idle CPU over 60 s after a 30 s settle: 0 ms for the app and its WebView2
 processes (below the 15.6 ms timer resolution).
 
+### M2 perf baseline: animated cat (task 2.1), Windows, local desktop
+
+2026-11-17, same machine (Windows 11 23H2, 24 logical CPUs, 3.7 GHz),
+release build, kept config, default sprite pack, cat scale 2 (96 x 96 CSS
+px canvas), 30 s settle. The renderer draws only when the frame changes:
+a timeout waits for the next frame, one `requestAnimationFrame` draws it.
+
+**Memory** (`tools/measure-memory.ps1`, 3 runs per state, 5 processes):
+
+| State | Private WS | Private Bytes |
+|---|---|---|
+| `idle` (8 frames at 5 fps) | 53.8 / 50.4 / 51.0, mean **51.7** | 79.3 / 75.8 / 77.1, mean 77.4 |
+| `sleeping` (4 frames at 3 fps) | 52.5 / 57.2 / 52.8, mean **54.2** | 76.1 / 81.0 / 79.0, mean 78.7 |
+
+No measurable change from the 1.A demo page: the canvas, sprites and IPC
+cost less than the run-to-run noise. **Under 80 MB.**
+
+**CPU** over 60 s, summed over the app and its WebView2 processes, 3 runs
+per state. Measured as CPU cycles (`QueryProcessCycleTime`) converted to
+time at the nominal clock. `TotalProcessorTime` / Task Manager are
+tick-sampled (15.6 ms) and badly undercount these short bursts: the same
+runs read 15-500 ms there.
+
+| State | CPU time per 60 s | % of one core | % of the machine (24 CPUs) |
+|---|---|---|---|
+| `idle`, animating at 5 fps | 1078 / 693 / 674 ms, mean **815 ms** | **1.36 %** | 0.06 % |
+| `sleeping`, animating at 3 fps | 642 / 646 / 448 ms, mean **579 ms** | **0.96 %** | 0.04 % |
+| static frame / 1.A demo page | 0 ms (tick-sampled) | ~0 % | ~0 % |
+
+Almost all of it is in the WebView2 browser process (display compositor,
+in-process software GPU) and the renderer, roughly 2.7-3.2 ms of CPU per
+drawn frame. So the cost scales with frames drawn per second, not with the
+canvas size. The app process itself uses ~0 (the idle timer sleeps on a
+condition variable).
+
+GPU experiment (one run, idle at 5 fps): removing `--disable-gpu
+--disable-software-rasterizer --in-process-gpu` gives **909 ms** per 60 s
+(no real gain: the per-frame cost is frame production and presentation,
+not rasterising a 96 px canvas) and costs memory: 6 processes, private WS
+70.5 MB, Private Bytes 144 MB. Kept config stays.
+
+**Verdict against spec 10 ("~0%, sustained < 1%")**: as Task Manager
+reports it (share of the whole machine) the animated cat is 0.04-0.06 %,
+shown as 0 %. Read as a share of one core, `sleeping` is just under 1 %
+and `idle` is ~1.4 %, over the target. Raised with the owner rather than
+relaxed. Options, cheapest first:
+
+1. **Accept** the machine-wide reading (0.06 %; on a 4-core laptop about
+   0.35 %).
+2. **Lower frame rates in the pack** (art only, no code): CPU scales with
+   frames per second, e.g. idle at 3 fps is ~1 % of a core, 2 fps ~0.6 %.
+3. **Holds in the animation** (sprite-pack format change): per-frame
+   durations, so idle can hold a frame for seconds and blink briefly. Most
+   of the time no frame is drawn, which brings idle close to 0.
+4. **Animate idle only for a while** (e.g. 30 s after entering `idle` or
+   after an interaction), then hold frame 0 until the next event.
+   Behaviour change, small code change.
+5. GPU on: measured, no gain, +19 MB private WS. Rejected.
+6. Native drawing (layered window): removes the webview cost entirely;
+   large cost (see options below).
+
 ### CI runners
 
 | Date | Runner | Build | Config | Processes | Result |
@@ -165,6 +226,9 @@ process was attributed to the app at idle.
 - The Windows private working set margin is ~26-28 MB (Private Bytes, for
   reference only, has ~2 MB). This is a bare placeholder page. The sprite canvas, bubble and IPC will add to it, so the
   number must be re-measured at M2 (perf baseline) and at every milestone.
+- M2 baseline (2026-11-17, animated canvas): 52-54 MB private working set,
+  unchanged. CPU while animating: see the M2 section above (0.06 % of the
+  machine, ~1-1.4 % of one core; open question for the owner).
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 

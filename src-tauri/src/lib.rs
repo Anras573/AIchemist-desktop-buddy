@@ -17,6 +17,7 @@ pub mod sync;
 
 use tauri::Manager;
 
+pub mod buddy_state;
 pub mod buddy_window;
 pub mod click_through;
 pub mod pause;
@@ -34,9 +35,15 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {
             // The buddy is already on screen; nothing else to do.
         }))
-        .invoke_handler(tauri::generate_handler![click_through::set_hit_regions])
+        .invoke_handler(tauri::generate_handler![
+            click_through::set_hit_regions,
+            buddy_state::get_buddy_state,
+            buddy_state::report_interaction,
+            buddy_state::get_appearance,
+        ])
         .setup(|app| {
             pause::init(app.handle());
+            buddy_state::init(app.handle());
             if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
                 click_through::init(app.handle(), &buddy)?;
                 // Settings loading lands later; until then, the defaults.
