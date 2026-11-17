@@ -7,11 +7,10 @@
     <link rel="stylesheet" href="./buddy.css" />
   </head>
   <body>
-    <main id="buddy" aria-label="Desktop buddy">
-      <!-- Click-through spike (task 0.5): placeholder rectangles stand in for
-           the speech bubble and the cat until the real renderer lands. -->
-      <div id="bubble" class="hit" hidden>Meeting in 5 min</div>
-      <div id="cat" class="hit">cat</div>
+    <main id="buddy" aria-label="Desktop buddy" data-side="right">
+      <!-- Speech bubble (task 2.2 fills it). Hit regions follow its size. -->
+      <div id="bubble" hidden></div>
+      <canvas id="cat" width="96" height="96"></canvas>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

@@ -213,9 +213,10 @@ editor underneath it.
   `app.macOSPrivateApi`), which Tauri requires for transparent windows on
   macOS. It rules out the Mac App Store, which is not a target.
 - **Linux:** no click-through.
-- The page calls IPC through `window.__TAURI_INTERNALS__.invoke` to avoid
-  adding `@tauri-apps/api` for one call. The real frontend should use the
-  package.
+- The buddy page calls IPC through `window.__TAURI_INTERNALS__`
+  (`src/buddy/ipc.ts`: `invoke` plus `listen` via `plugin:event|listen`)
+  instead of adding `@tauri-apps/api`. It needs only those two calls, and
+  never unlistens, so the capability grants only `core:event:allow-listen`.
 
 ## Buddy window shell (task 1.A)
 
@@ -330,3 +331,50 @@ Run as above (`npm run tauri dev`, or the `.app` bundle).
 11. [ ] On a Retina display, the window is 256 x 232 points and the cat box
     sits in its bottom-right corner (no clipping).
 12. [ ] Idle CPU still 0.0% in Activity Monitor after these steps.
+
+## Buddy renderer (task 2.1)
+
+Code: `src/buddy/` (canvas renderer, `frames.ts` pure frame timing,
+`ipc.ts`, `sprites.ts`, `hooks.ts`), `src-tauri/src/buddy_state.rs` (state
+runtime and idle-to-sleep timer).
+
+- The cat is a `<canvas>` sized `48 * catScale` CSS px, with a backing store
+  of that size times `devicePixelRatio` and `imageSmoothingEnabled = false`,
+  so the pixel art stays crisp. It sits 8 px from the bottom, on the side of
+  the configured corner (right for `*Right`, left for `*Left`). `#bubble`
+  (filled by 2.2) sits above it, max 240 x 120.
+- Hit regions: the canvas box plus 2 px, and the bubble box plus 2 px when
+  it is shown. Re-reported on appearance change, window resize / DPR change,
+  when the window becomes visible, and (through a `ResizeObserver`) whenever
+  the bubble appears, disappears or changes size. The canvas never draws
+  outside its box, so the region always covers what is drawn.
+- Hover (`pointerenter` / `pointermove`, at most once per 3 s), click and
+  right-click on the cat call `report_interaction`. The browser context menu
+  is suppressed everywhere in the window.
+
+### Verified on Windows (2026-11-17, Windows 11 23H2, 3440 x 1440 at 100%)
+
+Release build:
+
+- [x] The idle cat animates (frames change between screenshots 230 ms
+  apart) at 96 x 96 in the bottom-right corner of the 256 x 232 window.
+- [x] Window region is 150,126 - 250,226 (the 96 px cat plus the 2 px
+  margin). `WindowFromPoint` on the cat returns the buddy; in the empty part
+  of the window it returns the window underneath.
+- [x] With a short idle timeout (`AICHEMIST_SLEEP_AFTER_IDLE_SECS`, debug
+  builds only; a temporary local build enabled it in release for the check)
+  the cat switches to the sleeping animation; moving the cursor over the cat
+  wakes it (idle animation again).
+
+### Manual test checklist for macOS (task 2.1)
+
+1. [ ] The cat animates (idle) at the bottom-right of the window, crisp on a
+   Retina display (no blurry edges).
+2. [ ] Hovering the cat and clicking it work; clicks next to the cat (inside
+   the window but outside the cat) reach the app underneath.
+3. [ ] Right-click on the cat shows no browser context menu.
+4. [ ] Debug build with `AICHEMIST_SLEEP_AFTER_IDLE_SECS=15 npm run tauri
+   dev`: after 15 s the cat sleeps; hovering wakes it.
+5. [ ] Activity Monitor: CPU of the app and its WebKit processes while the
+   cat animates (idle) and while it sleeps. Record the numbers in
+   `docs/perf.md`.

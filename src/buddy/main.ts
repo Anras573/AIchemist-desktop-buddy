@@ -1,64 +1,208 @@
-// Buddy window entry point.
+// Buddy window entry point (task 2.1): draws the cat on a canvas, follows the
+// buddy state and appearance from Rust, and reports hit regions.
 //
-// Click-through spike (task 0.5): the page reports the bounding boxes of the
-// cat and the speech bubble to Rust, which makes the rest of the window
-// click-through. Left-click on the cat toggles the bubble; right-click and
-// hover change the cat's colour, to show they reach the page.
+// Layout (src-tauri/src/placement.rs): 8 px padding on every side, the cat
+// (48 x 48 frame at `catScale`) at the bottom, on the side of the configured
+// corner, and the 240 x 120 bubble area above it. `#bubble` is filled by the
+// reminder bubble (2.2); its size changes are picked up automatically.
+//
+// CPU (docs/perf.md): the page is rasterised on the CPU (WebView2 runs with
+// the GPU disabled), so it draws only when the frame changes. A timeout waits
+// until the next frame is due and a single requestAnimationFrame draws it;
+// static frames and finished one-shot animations schedule nothing.
 
-interface HitRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+import { frameAt } from "./frames";
+import { catHandlers } from "./hooks";
+import {
+  type Appearance,
+  type BuddyState,
+  type HitRect,
+  inTauri,
+  invoke,
+  listen,
+  reportInteraction,
+  setHitRegions,
+} from "./ipc";
+import { loadDefaultPack, type SpritePack } from "./sprites";
+
+const main = document.querySelector<HTMLElement>("#buddy")!;
+const canvas = document.querySelector<HTMLCanvasElement>("#cat")!;
+const bubble = document.querySelector<HTMLElement>("#bubble")!;
+const ctx = canvas.getContext("2d")!;
+
+/** Extra hit area around the drawn boxes (CSS px). On Windows the window
+ * region also clips drawing, so it must cover everything drawn. */
+const HIT_MARGIN = 2;
+/** At most one hover report per this many ms. */
+const HOVER_THROTTLE_MS = 3000;
+
+let pack: SpritePack | null = null;
+let state: BuddyState = "idle";
+let stateStart = performance.now();
+let appearance: Appearance = {
+  catScale: 2,
+  corner: "bottomRight",
+  monitor: null,
+  opacityPercent: 100,
+  spritePack: "default",
+};
+
+// ----- Rendering -----
+
+let timer: number | undefined;
+let frameRequest: number | undefined;
+let drawnFrame = -1;
+
+function stopLoop(): void {
+  if (timer !== undefined) clearTimeout(timer);
+  if (frameRequest !== undefined) cancelAnimationFrame(frameRequest);
+  timer = frameRequest = undefined;
 }
 
-// Minimal IPC bridge. Avoids pulling in @tauri-apps/api for one call; the real
-// frontend can switch to `invoke` from that package.
-declare global {
-  interface Window {
-    __TAURI_INTERNALS__?: {
-      invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>;
-    };
+/** Draws the current frame if it changed and schedules the next one. */
+function tick(): void {
+  frameRequest = undefined;
+  if (!pack) return;
+  const sprite = pack.states[state];
+  const { index, nextInMs } = frameAt(sprite, performance.now() - stateStart);
+  if (index !== drawnFrame) {
+    const { frameWidth: w, frameHeight: h } = pack;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite.image, index * w, 0, w, h, 0, 0, canvas.width, canvas.height);
+    drawnFrame = index;
+  }
+  if (nextInMs !== null && !document.hidden) {
+    timer = window.setTimeout(() => {
+      timer = undefined;
+      frameRequest = requestAnimationFrame(tick);
+    }, Math.max(1, Math.ceil(nextInMs)));
   }
 }
 
-const cat = document.querySelector<HTMLDivElement>("#cat");
-const bubble = document.querySelector<HTMLDivElement>("#bubble");
+/** (Re)starts the loop, redrawing the current frame. */
+function restart(): void {
+  stopLoop();
+  drawnFrame = -1;
+  if (!document.hidden) frameRequest = requestAnimationFrame(tick);
+}
 
-function hitRegions(): HitRect[] {
-  return [cat, bubble]
-    .filter((el): el is HTMLDivElement => el !== null && !el.hidden)
-    .map((el) => {
-      const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, width: r.width, height: r.height };
-    });
+function setState(next: BuddyState): void {
+  if (next === state) return;
+  state = next;
+  stateStart = performance.now(); // Entering a state restarts it at frame 0.
+  restart();
+}
+
+// ----- Layout -----
+
+function catCssSize(): { width: number; height: number } {
+  const scale = Math.max(1, Math.floor(appearance.catScale));
+  const w = pack?.frameWidth ?? 48;
+  const h = pack?.frameHeight ?? 48;
+  return { width: w * scale, height: h * scale };
+}
+
+/** Sizes the canvas for the scale and devicePixelRatio, positions it. */
+function layout(): void {
+  const { width, height } = catCssSize();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  const bw = Math.round(width * dpr);
+  const bh = Math.round(height * dpr);
+  if (canvas.width !== bw || canvas.height !== bh) {
+    canvas.width = bw; // Also clears the canvas and resets the context.
+    canvas.height = bh;
+  }
+  main.style.setProperty("--cat-height", `${height}px`);
+  main.dataset.side = appearance.corner.endsWith("Left") ? "left" : "right";
+  main.style.opacity = String(Math.min(100, Math.max(20, appearance.opacityPercent)) / 100);
+  restart();
+  reportHitRegions();
+}
+
+function grow(r: DOMRect, m: number): HitRect {
+  const x = Math.max(0, r.x - m);
+  const y = Math.max(0, r.y - m);
+  return { x, y, width: r.right + m - x, height: r.bottom + m - y };
 }
 
 function reportHitRegions(): void {
-  const ipc = window.__TAURI_INTERNALS__;
-  if (!ipc) return; // Plain browser (vite dev without Tauri).
-  ipc.invoke("set_hit_regions", { regions: hitRegions() }).catch((err: unknown) => {
-    console.error("set_hit_regions failed", err);
-  });
+  const regions = [grow(canvas.getBoundingClientRect(), HIT_MARGIN)];
+  const b = bubble.getBoundingClientRect();
+  if (!bubble.hidden && b.width > 0 && b.height > 0) regions.push(grow(b, HIT_MARGIN));
+  setHitRegions(regions);
 }
 
-if (cat && bubble) {
-  cat.addEventListener("mouseenter", () => cat.classList.add("hover"));
-  cat.addEventListener("mouseleave", () => cat.classList.remove("hover"));
-  cat.addEventListener("click", () => {
-    bubble.hidden = !bubble.hidden;
+// ----- Interaction -----
+
+let lastReport = -Infinity;
+
+function interacted(force: boolean): void {
+  const now = performance.now();
+  if (!force && now - lastReport < HOVER_THROTTLE_MS) return;
+  lastReport = now;
+  reportInteraction();
+}
+
+canvas.addEventListener("pointerenter", () => interacted(false));
+canvas.addEventListener("pointermove", () => interacted(false));
+canvas.addEventListener("click", (e) => {
+  interacted(true);
+  catHandlers.click(e);
+});
+// No browser context menu anywhere in the buddy window.
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+canvas.addEventListener("contextmenu", (e) => {
+  interacted(true);
+  catHandlers.contextMenu(e);
+});
+
+// ----- Wiring -----
+
+let dpr = window.devicePixelRatio;
+window.addEventListener("resize", () => {
+  if (window.devicePixelRatio !== dpr) {
+    dpr = window.devicePixelRatio;
+    layout();
+  } else {
     reportHitRegions();
-  });
-  cat.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    cat.classList.toggle("menu");
-  });
+  }
+});
+
+// The window starts hidden and is shown once Rust has placed it.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopLoop();
+  } else {
+    restart();
+    reportHitRegions();
+  }
+});
+
+// The bubble (2.2) appearing, disappearing or resizing.
+new ResizeObserver(reportHitRegions).observe(bubble);
+
+async function start(): Promise<void> {
+  // Listen first so no change between the reads and the listen is missed.
+  await Promise.all([
+    listen<BuddyState>("buddy-state-changed", setState),
+    listen<Appearance>("appearance-changed", (a) => {
+      appearance = a;
+      layout();
+    }),
+  ]);
+  const [initialState, initialAppearance, loaded] = await Promise.all([
+    inTauri ? invoke<BuddyState>("get_buddy_state") : Promise.resolve(state),
+    inTauri ? invoke<Appearance>("get_appearance") : Promise.resolve(appearance),
+    loadDefaultPack(),
+  ]);
+  pack = loaded;
+  appearance = initialAppearance;
+  state = initialState;
+  stateStart = performance.now();
+  layout();
 }
 
-window.addEventListener("resize", reportHitRegions);
-// The window starts hidden and is shown once Rust has placed it; report
-// again when it becomes visible in case layout was not final before.
-document.addEventListener("visibilitychange", reportHitRegions);
-reportHitRegions();
-
-export {};
+start().catch((err: unknown) => console.error("buddy start failed", err));
