@@ -1,0 +1,8 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#me/calendars(id,name,hexColor)",
+  "value": [
+    { "id": "AAMkCal1==", "name": "Calendar", "hexColor": "#E07A5F" },
+    { "id": "AAMkCal2/x+y", "name": "Team", "hexColor": "" }
+  ],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendars?%24select=id%2Cname%2ChexColor&%24top=2&%24skip=2"
+}

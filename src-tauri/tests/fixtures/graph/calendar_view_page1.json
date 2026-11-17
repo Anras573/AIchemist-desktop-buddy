@@ -1,0 +1,60 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#me/calendars('AAMkCal1%3D%3D')/calendarView",
+  "value": [
+    {
+      "@odata.etag": "W/\"etag-1\"",
+      "id": "evt-timed",
+      "subject": "Design review",
+      "isAllDay": false,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-16T09:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-16T09:30:00.0000000", "timeZone": "UTC" },
+      "location": { "displayName": "Room 4", "locationType": "default" },
+      "responseStatus": { "response": "accepted", "time": "2026-11-10T08:00:00Z" }
+    },
+    {
+      "id": "evt-allday-single",
+      "subject": "Offsite",
+      "isAllDay": true,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-17T00:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-18T00:00:00.0000000", "timeZone": "UTC" },
+      "location": { "displayName": "" },
+      "responseStatus": { "response": "organizer", "time": "0001-01-01T00:00:00Z" }
+    },
+    {
+      "id": "evt-allday-multi",
+      "subject": "Conference",
+      "isAllDay": true,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-17T23:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-19T23:00:00.0000000", "timeZone": "UTC" },
+      "responseStatus": { "response": "tentativelyAccepted" }
+    },
+    {
+      "id": "evt-series-instance-1",
+      "subject": "Standup",
+      "isAllDay": false,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-16T08:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-16T08:15:00.0000000", "timeZone": "UTC" },
+      "location": { "displayName": "Online" },
+      "responseStatus": { "response": "accepted" },
+      "type": "occurrence",
+      "seriesMasterId": "series-master-1"
+    },
+    {
+      "id": "evt-series-instance-2",
+      "subject": "Standup",
+      "isAllDay": false,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-17T08:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-17T08:15:00.0000000", "timeZone": "UTC" },
+      "location": { "displayName": "Online" },
+      "responseStatus": { "response": "accepted" },
+      "type": "occurrence",
+      "seriesMasterId": "series-master-1"
+    }
+  ],
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/calendars('AAMkCal1%3D%3D')/calendarView?startDateTime=2026-11-16T00%3A00%3A00Z&endDateTime=2026-11-23T00%3A00%3A00Z&%24top=5&%24skip=5"
+}
