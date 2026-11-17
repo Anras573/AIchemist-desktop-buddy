@@ -276,6 +276,11 @@ of the menu and a second tooltip line (for task 3.5).
 
 `tauri-plugin-single-instance`: a second launch exits with code 0 before it
 creates a window. Windows: named mutex. macOS: a Unix socket in `/tmp`.
+Since task 2.4 the running instance then shows a small native notice,
+"AIchemist Buddy is already running.", with a hint where to find it
+(`src-tauri/src/already_running.rs`): `MessageBoxW` on its own thread on
+Windows, `NSAlert` on the main thread on macOS, a log line on Linux. Only
+one notice at a time; launches while it shows are ignored.
 
 ### Verified on Windows (2026-11-16, Windows 11 23H2, 3440 x 1440 at 100%)
 
@@ -321,7 +326,7 @@ Run as above (`npm run tauri dev`, or the `.app` bundle).
 7. [ ] Quit exits the app.
 8. [ ] Launch the app again while it runs (`open -n` the bundle, or run the
    binary twice): the second copy exits and no second cat appears. (Since
-   task 2.4 the running copy opens Settings instead.)
+   task 2.4: see item 8 of the task 2.4 checklist for the notice.)
 9. [ ] Move the Dock to the left/right or change its size, and turn Dock
    auto-hide on and off: note whether the cat moves to stay clear of it
    (depends on whether macOS posts the screen-parameters notification for
@@ -387,8 +392,8 @@ listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.r
 (window lifecycle, `list_monitors`), `src-tauri/src/logger.rs` (log file),
 `src/settings/` (page).
 
-- **Lifecycle.** `tray::open_settings` (tray menu, and a second launch of
-  the app) creates the `settings` window on demand: decorated, resizable,
+- **Lifecycle.** `tray::open_settings` (tray menu; later the cat menu and the
+  `open_settings` command) creates the `settings` window on demand: decorated, resizable,
   560 x 680, centered, title "AIchemist Buddy Settings". If it exists it is
   unminimized and focused. Closing it uses Tauri's default close, which
   destroys the window and its webview; nothing hides it. It is built with the
@@ -409,7 +414,10 @@ listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.r
 
 ### Verified on Windows (2026-11-17, release build, UI Automation)
 
-- [x] A second launch opens the window; one window only.
+- [x] Opening twice gives one window only.
+- [x] A second launch shows "AIchemist Buddy is already running." (from the
+  first instance) and exits with code 0; launches while the notice shows
+  open no second notice.
 - [x] Cat size slider 2 -> 4: the buddy resizes live (256 x 232 -> 256 x 328)
   and stays in the corner.
 - [x] Corner "Top left": the buddy moves live to 8,8.
@@ -421,8 +429,9 @@ listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.r
   logs a warning with the field path only.
 - [x] Closing the window destroys it: the window and its renderer process
   are gone; memory in `docs/perf.md`.
-- [ ] Opening from the tray menu itself was not automated (same function as
-  the second launch); please check by hand.
+- Window checks above were driven through the same `tray::open_settings`
+  call as the tray item (a temporary test hook in an earlier revision of
+  this PR).
 
 ### Manual test checklist for macOS (task 2.4)
 
@@ -442,3 +451,6 @@ listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.r
    idle number (`tools/measure-memory.sh --pid PID` before, while open,
    after).
 7. [ ] Light and dark mode both render the form legibly.
+8. [ ] Launch the app a second time while it runs: an alert "AIchemist Buddy
+   is already running. Find it in the menu bar." appears in front; click OK.
+   Launch twice quickly: only one alert. No second cat appears.

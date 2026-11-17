@@ -17,6 +17,7 @@ pub mod sync;
 
 use tauri::Manager;
 
+pub mod already_running;
 pub mod buddy_state;
 pub mod buddy_window;
 pub mod click_through;
@@ -36,10 +37,8 @@ pub fn run() {
         // Must be the first plugin: a second launch exits here, before it
         // creates any window (spec 4: one buddy).
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // The buddy is already on screen. Launching the app again (e.g.
-            // from the Start menu while the tray icon sits in the overflow)
-            // opens Settings, the only window the user can otherwise reach.
-            tray::open_settings(app);
+            // The second process exits; tell the user where the buddy is.
+            already_running::notify(app);
         }))
         .invoke_handler(tauri::generate_handler![
             click_through::set_hit_regions,

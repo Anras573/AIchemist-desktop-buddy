@@ -208,7 +208,8 @@ relaxed. Options, cheapest first:
    large cost (see options below).
 
 Settings window (task 2.4), same machine, release build, kept config, 30 s
-settle per measurement, settings window opened by a second launch and closed
+settle per measurement, settings window opened through `tray::open_settings`
+(from a temporary test hook) and closed
 through UI Automation (`WindowPattern.Close`, same as the close button).
 Private WS / Private Bytes, MB:
 

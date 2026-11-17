@@ -5,9 +5,9 @@
 //! Closing uses Tauri's default close behaviour, which destroys the window
 //! and its webview (nothing here calls `prevent_close` or hides it).
 
-use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
+use crate::domain::ipc::MonitorInfo;
 use crate::BUDDY_WINDOW_LABEL;
 
 /// Label of the settings window.
@@ -62,23 +62,8 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
-/// A connected monitor, for the monitor selector.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MonitorInfo {
-    /// Name as stored in `AppearanceSettings::monitor`.
-    pub name: String,
-    /// Whether this is the primary monitor.
-    pub primary: bool,
-    /// Size in physical pixels.
-    pub width: u32,
-    /// Size in physical pixels.
-    pub height: u32,
-}
-
-/// `list_monitors` (settings window only; not part of the frozen IPC
-/// contract, see the PR notes): connected monitors with a name, primary
-/// first.
+/// `list_monitors` (settings window only): connected monitors with a name,
+/// primary first.
 #[tauri::command]
 pub fn list_monitors(app: AppHandle) -> Vec<MonitorInfo> {
     let primary = app
