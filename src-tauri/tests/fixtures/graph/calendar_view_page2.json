@@ -1,0 +1,43 @@
+{
+  "value": [
+    {
+      "id": "evt-series-instance-3",
+      "subject": "Standup",
+      "isAllDay": false,
+      "isCancelled": true,
+      "start": { "dateTime": "2026-11-18T08:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-18T08:15:00.0000000", "timeZone": "UTC" },
+      "responseStatus": { "response": "accepted" },
+      "type": "exception",
+      "seriesMasterId": "series-master-1"
+    },
+    {
+      "id": "evt-declined",
+      "subject": "Budget sync",
+      "isAllDay": false,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-19T13:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-19T14:00:00.0000000", "timeZone": "UTC" },
+      "responseStatus": { "response": "declined" }
+    },
+    {
+      "id": "evt-no-subject",
+      "subject": null,
+      "isAllDay": false,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-20T10:00:00", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-20T11:00:00", "timeZone": "UTC" },
+      "location": { "displayName": "  " },
+      "responseStatus": { "response": "notResponded" }
+    },
+    {
+      "id": "evt-allday-west",
+      "subject": "Holiday",
+      "isAllDay": true,
+      "isCancelled": false,
+      "start": { "dateTime": "2026-11-21T05:00:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-11-22T05:00:00.0000000", "timeZone": "UTC" },
+      "responseStatus": { "response": "none" }
+    }
+  ]
+}

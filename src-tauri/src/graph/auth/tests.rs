@@ -24,10 +24,10 @@ struct FakeHttp {
 
 impl FakeHttp {
     fn push(&self, status: u16, body: &str) {
-        self.responses.lock().unwrap().push_back(Ok(HttpResponse {
-            status,
-            body: body.as_bytes().to_vec(),
-        }));
+        self.responses
+            .lock()
+            .unwrap()
+            .push_back(Ok(HttpResponse::new(status, body.as_bytes())));
     }
 
     fn push_err(&self, err: Error) {
@@ -52,6 +52,10 @@ impl HttpClient for FakeHttp {
             .unwrap()
             .pop_front()
             .expect("unexpected HTTP request")
+    }
+
+    fn get(&self, _url: &str, _headers: &[(&str, &str)]) -> Result<HttpResponse> {
+        panic!("the auth code never sends GET")
     }
 }
 
@@ -600,10 +604,7 @@ fn debug_output_never_contains_tokens() {
         !dbg.contains("access-1") && !dbg.contains("refresh-1"),
         "{dbg}"
     );
-    let resp = HttpResponse {
-        status: 200,
-        body: b"secret-body".to_vec(),
-    };
+    let resp = HttpResponse::new(200, b"secret-body".as_slice());
     assert!(!format!("{resp:?}").contains("secret-body"));
 }
 
