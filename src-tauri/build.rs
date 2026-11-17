@@ -7,6 +7,9 @@ fn main() {
         "get_buddy_state",
         "report_interaction",
         "get_appearance",
+        "get_settings",
+        "update_settings",
+        "list_monitors",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

@@ -21,6 +21,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         buddy: resolve(here, "src/buddy/index.html"),
+        settings: resolve(here, "src/settings/index.html"),
       },
     },
   },

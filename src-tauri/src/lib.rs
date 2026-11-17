@@ -20,8 +20,11 @@ use tauri::Manager;
 pub mod buddy_state;
 pub mod buddy_window;
 pub mod click_through;
+pub mod logger;
 pub mod pause;
 pub mod placement;
+pub mod settings_service;
+pub mod settings_window;
 pub mod tray;
 
 /// Label of the buddy window declared in `tauri.conf.json`.
@@ -32,22 +35,31 @@ pub fn run() {
     tauri::Builder::default()
         // Must be the first plugin: a second launch exits here, before it
         // creates any window (spec 4: one buddy).
-        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {
-            // The buddy is already on screen; nothing else to do.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // The buddy is already on screen. Launching the app again (e.g.
+            // from the Start menu while the tray icon sits in the overflow)
+            // opens Settings, the only window the user can otherwise reach.
+            tray::open_settings(app);
         }))
         .invoke_handler(tauri::generate_handler![
             click_through::set_hit_regions,
             buddy_state::get_buddy_state,
             buddy_state::report_interaction,
             buddy_state::get_appearance,
+            settings_service::get_settings,
+            settings_service::update_settings,
+            settings_window::list_monitors,
         ])
         .setup(|app| {
+            if let Ok(dir) = app.path().app_log_dir() {
+                logger::init(&dir);
+            }
+            let settings = settings_service::init(app.handle());
             pause::init(app.handle());
             buddy_state::init(app.handle());
             if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
                 click_through::init(app.handle(), &buddy)?;
-                // Settings loading lands later; until then, the defaults.
-                buddy_window::init(app.handle(), &buddy, Default::default())?;
+                buddy_window::init(app.handle(), &buddy, settings.appearance)?;
             }
             tray::init(app.handle())?;
             Ok(())
@@ -101,6 +113,31 @@ mod tests {
                 "--enable-features=NetworkServiceInProcess,NetworkServiceInProcess2",
             )
         );
+    }
+
+    #[test]
+    fn settings_commands_are_granted_only_to_the_settings_window() {
+        let buddy: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/buddy.json")).unwrap();
+        let settings: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/settings.json")).unwrap();
+
+        assert_eq!(settings["windows"], serde_json::json!(["settings"]));
+        assert_eq!(
+            settings["permissions"],
+            serde_json::json!([
+                "allow-get-settings",
+                "allow-update-settings",
+                "allow-list-monitors"
+            ])
+        );
+        for perm in buddy["permissions"].as_array().unwrap() {
+            let perm = perm.as_str().unwrap();
+            assert!(
+                !perm.contains("settings") && !perm.contains("monitors"),
+                "buddy must not get {perm}"
+            );
+        }
     }
 
     #[test]
