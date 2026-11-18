@@ -12,6 +12,32 @@
     <main id="buddy" aria-label="Desktop buddy" data-side="right">
       <!-- Speech bubble (task 2.2 fills it). Hit regions follow its size. -->
       <div id="bubble" hidden></div>
+      <!-- Upcoming popover (task 2.3, popover.ts). -->
+      <section id="popover" role="dialog" aria-label="Upcoming" hidden>
+        <header class="popover-header">
+          <h1>Upcoming</h1>
+          <span id="popover-status" class="status" role="status"></span>
+          <button id="popover-close" type="button" aria-label="Close" title="Close">&times;</button>
+        </header>
+        <div class="popover-body">
+          <h2>Meetings</h2>
+          <ul id="meetings" class="list"></ul>
+          <h2>Tasks</h2>
+          <ul id="tasks" class="list"></ul>
+          <details id="done" hidden>
+            <summary>Done (<span id="done-count">0</span>)</summary>
+            <ul id="done-tasks" class="list"></ul>
+          </details>
+        </div>
+        <form id="add-task" class="add-task" novalidate autocomplete="off">
+          <input id="task-title" type="text" maxlength="200" placeholder="Add a task" aria-label="Task title" aria-describedby="task-title-error" />
+          <input id="task-due" type="datetime-local" aria-label="Due" aria-describedby="task-due-error" />
+          <button type="submit">Add</button>
+          <div id="task-title-error" class="error" aria-live="polite"></div>
+          <div id="task-due-error" class="error" aria-live="polite"></div>
+          <div id="task-form-error" class="error" aria-live="polite"></div>
+        </form>
+      </section>
       <canvas id="cat" width="96" height="96"></canvas>
     </main>
     <script type="module" src="./main.ts"></script>

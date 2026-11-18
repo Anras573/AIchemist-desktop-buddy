@@ -284,6 +284,17 @@ what stays (~+5 MB, mostly the browser process keeping heap it grew) does not
 grow with further open/close cycles. The idle state with no settings window
 stays well under 80 MB.
 
+### Upcoming popover (task 2.3), Windows, local desktop
+
+Same machine, release build, kept config, private working set summed over the
+app and its WebView2 tree. Idle with the popover closed (fresh launch,
+`tools/measure-memory.ps1`, 30 s settle): **49.8 MB** (Private Bytes 74.8 MB,
+5 processes). Popover open/close was driven through the WebView2 DevTools
+port (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=...`),
+which costs a few MB itself: closed 53.2 MB, popover open (window grown to
+304 x 472, 20 s settle) 55.6 MB, closed again 53.6 MB. The popover adds no
+process; it is DOM in the buddy page, and its lists are dropped on close.
+
 ### CI runners
 
 | Date | Runner | Build | Config | Processes | Result |

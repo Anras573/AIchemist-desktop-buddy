@@ -14,7 +14,7 @@
 // schedule nothing. No requestAnimationFrame loop.
 
 import { frameAt } from "./frames";
-import { catHandlers } from "./hooks";
+import { catHandlers, onCatClick, onCatContextMenu } from "./hooks";
 import {
   type Appearance,
   type BuddyState,
@@ -25,6 +25,7 @@ import {
   reportInteraction,
   setHitRegions,
 } from "./ipc";
+import { initPopover } from "./popover";
 import { loadDefaultPack, type SpritePack } from "./sprites";
 
 const main = document.querySelector<HTMLElement>("#buddy")!;
@@ -125,10 +126,24 @@ function grow(r: DOMRect, m: number): HitRect {
 
 function reportHitRegions(): void {
   const regions = [grow(canvas.getBoundingClientRect(), HIT_MARGIN)];
-  const b = bubble.getBoundingClientRect();
-  if (!bubble.hidden && b.width > 0 && b.height > 0) regions.push(grow(b, HIT_MARGIN));
+  for (const el of [bubble, popover.element]) {
+    const r = el.getBoundingClientRect();
+    if (!el.hidden && r.width > 0 && r.height > 0) regions.push(grow(r, HIT_MARGIN));
+  }
   setHitRegions(regions);
 }
+
+// ----- Popover and cat menu (task 2.3) -----
+
+const popover = initPopover({
+  main,
+  corner: () => appearance.corner,
+  changed: reportHitRegions,
+});
+onCatClick(() => popover.toggle());
+onCatContextMenu(() => {
+  if (inTauri) invoke("show_cat_menu").catch((err: unknown) => console.error("show_cat_menu failed", err));
+});
 
 // ----- Interaction -----
 
@@ -177,7 +192,9 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // The bubble (2.2) appearing, disappearing or resizing.
-new ResizeObserver(reportHitRegions).observe(bubble);
+const observer = new ResizeObserver(reportHitRegions);
+observer.observe(bubble);
+observer.observe(popover.element);
 
 async function start(): Promise<void> {
   // Listen first so no change between the reads and the listen is missed.

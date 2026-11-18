@@ -3,6 +3,8 @@
 // page dependency-free. In a plain browser (vite dev without Tauri) calls
 // are no-ops.
 
+import type { EventTime } from "./format";
+
 export interface HitRect {
   x: number;
   y: number;
@@ -24,6 +26,44 @@ export interface Appearance {
   opacityPercent: number;
   spritePack: string;
 }
+
+/** `Task` (src-tauri/src/domain/task.rs). */
+export interface Task {
+  id: string;
+  title: string;
+  dueAt: string;
+  done: boolean;
+  doneAt: string | null;
+  createdAt: string;
+}
+
+/** `Event` (src-tauri/src/domain/event.rs). */
+export interface CalendarEvent {
+  id: string;
+  accountId: string;
+  calendarId: string;
+  title: string;
+  time: EventTime;
+  location: string | null;
+  response: string;
+}
+
+/** `UpcomingResponse` (src-tauri/src/domain/ipc.rs). */
+export interface UpcomingResponse {
+  meetings: CalendarEvent[];
+  openTasks: Task[];
+  doneTasks: Task[];
+  paused: boolean;
+  lastSyncedAt: string | null;
+}
+
+/** `PopoverView` (src-tauri/src/domain/ipc.rs). */
+export type PopoverView = "upcoming" | "addTask";
+
+/** A rejected command: a serialized `domain::Error`. */
+export type IpcError =
+  | { kind: "validation"; errors: { field: string; message: string }[] }
+  | { kind: string; message: string };
 
 interface TauriEvent<T> {
   event: string;
