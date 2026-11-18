@@ -45,6 +45,24 @@ full working set per process plus a `TOTAL` line, then stops the app. Without
 specific running instance (when several builds with different identifiers
 run side by side).
 
+CPU over a window of time (default 60 s after a 30 s settle), summed over
+the app and its WebView2 processes, from CPU cycle counts
+(`QueryProcessCycleTime`, converted to time at the nominal clock):
+
+```powershell
+pwsh tools/measure-cpu.ps1 -ExePath src-tauri/target/release/aichemist-desktop-buddy.exe
+# sleeping state: let the buddy fall asleep 5 s after launch, then measure
+$env:AICHEMIST_SLEEP_AFTER_IDLE_SECS = 5
+pwsh tools/measure-cpu.ps1 -ExePath src-tauri/target/release/aichemist-desktop-buddy.exe
+```
+
+It prints CPU time per process, a `TOTAL` line with % of one core and % of
+the machine, then stops the app. `-ProcessId PID` measures a running
+instance and leaves it running; `-Seconds`, `-SettleSeconds` and `-Json`
+work as in the memory script. Cycle counts are used because
+`TotalProcessorTime` and Task Manager are tick-sampled (15.6 ms) and badly
+undercount the short bursts of an animation.
+
 ### macOS
 
 ```sh
@@ -207,6 +225,45 @@ relaxed. Options, cheapest first:
 6. Native drawing (layered window): removes the webview cost entirely;
    large cost (see options below).
 
+Owner decision (2026-11-17): option 3. Results in the next section.
+
+### Frame durations (task 2.1b), Windows, local desktop
+
+2026-11-17, same machine and method as the M2 baseline (release build, kept
+config, cat scale 2, 30 s settle, 60 s window, `tools/measure-cpu.ps1`;
+sleeping forced with `AICHEMIST_SLEEP_AFTER_IDLE_SECS=5`). Sprite-pack
+format 2: per-frame durations (docs/sprite-pack.md). The renderer keeps one
+timeout pending, set to the next frame change, and draws only then.
+
+| State | Frame changes per second | CPU time per 60 s | % of one core | % of the machine (24 CPUs) |
+|---|---|---|---|---|
+| `idle`, 2.1 baseline (8 frames at 5 fps) | 5 | 1078 / 693 / 674 ms, mean 815 ms | 1.36 % | 0.06 % |
+| `idle`, 2.1b (sit 4 s, blink, sit 3.5 s, swish, sit 5 s, double blink) | 0.8 | 256 / 261 / 403 ms, mean **306 ms** | **0.51 %** | 0.02 % |
+| `sleeping`, 2.1 baseline (4 frames at 3 fps) | 3 | 642 / 646 / 448 ms, mean 579 ms | 0.96 % | 0.04 % |
+| `sleeping`, 2.1b (breath held ~2.6 s, a "z" every 1.3 s) | 0.67 | 274 / 624 / 201 / 208 / 187 / 185 ms, mean **280 ms** | **0.47 %** | 0.02 % |
+
+Sleeping was run 6 times because run 2 (624 ms) was far off the others;
+other builds were running on the machine at the time, and runs 4-6
+(185-208 ms) confirm it as noise. Without it the mean is 211 ms (0.35 %).
+Nearly all of the time is in the WebView2 browser process (~75 %) and the
+renderer (~23 %); the app process uses ~2 ms per minute.
+
+**Memory** (`tools/measure-memory.ps1`, 3 runs per state, 5 processes),
+private WS / Private Bytes, MB:
+
+| State | Private WS | Private Bytes |
+|---|---|---|
+| `idle` | 50.7 / 52.8 / 55.8, mean **53.1** | 73.1 / 77.6 / 81.0, mean 77.2 |
+| `sleeping` | 59.1 / 53.2 / 55.4, mean **55.9** | 82.6 / 78.6 / 79.0, mean 80.1 |
+
+Unchanged from the 2.1 baseline within run-to-run noise.
+
+**Verdict:** sustained CPU is under 1 % of one core in both calm states
+(about a third of the 2.1 numbers), and ~0.02 % of the machine. CPU now
+scales with the pack's frame changes per second; packs that want to stay
+under the target should keep calm states below about 1.5 changes per
+second (docs/sprite-pack.md, authoring tip).
+
 ### Settings window (task 2.4), Windows, local desktop
 
 Same machine, release build, kept config, 30 s settle per measurement,
@@ -251,6 +308,9 @@ process was attributed to the app at idle.
 - M2 baseline (2026-11-17, animated canvas): 52-54 MB private working set,
   unchanged. CPU while animating: see the M2 section above (0.06 % of the
   machine, ~1-1.4 % of one core; open question for the owner).
+- Frame durations (2026-11-17, task 2.1b, owner decision): idle and
+  sleeping hold poses for seconds. CPU **0.51 % / 0.47 % of one core**,
+  under the 1 % target; memory unchanged (53-56 MB private WS).
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 

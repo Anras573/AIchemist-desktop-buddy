@@ -23,7 +23,8 @@ const STATES = ["idle", "sleeping", "thinking", "alert"];
 const SUPPORTED = new Set([
   "$schema", "$id", "$defs", "$ref", "title", "description",
   "type", "required", "properties", "additionalProperties",
-  "const", "minLength", "maxLength", "minimum", "maximum", "pattern",
+  "const", "enum", "minLength", "maxLength", "minimum", "maximum", "pattern",
+  "items", "minItems", "maxItems",
 ]);
 
 function typeOf(v) {
@@ -48,6 +49,12 @@ function validate(schema, value, path, root, errors) {
     if (!ok) return errors.push(`${path}: expected ${schema.type}, got ${t}`);
   }
   if ("const" in schema && value !== schema.const) errors.push(`${path}: must be ${JSON.stringify(schema.const)}`);
+  if (schema.enum && !schema.enum.includes(value)) errors.push(`${path}: must be one of ${JSON.stringify(schema.enum)}`);
+  if (t === "array") {
+    if (schema.minItems !== undefined && value.length < schema.minItems) errors.push(`${path}: fewer than ${schema.minItems} items`);
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) errors.push(`${path}: more than ${schema.maxItems} items`);
+    if (schema.items) value.forEach((v, i) => validate(schema.items, v, `${path}[${i}]`, root, errors));
+  }
   if (t === "string") {
     if (schema.minLength !== undefined && value.length < schema.minLength) errors.push(`${path}: shorter than ${schema.minLength}`);
     if (schema.maxLength !== undefined && value.length > schema.maxLength) errors.push(`${path}: longer than ${schema.maxLength}`);
@@ -85,6 +92,12 @@ function checkPack(dir, schema) {
   const { width: fw, height: fh } = pack.frameSize;
   for (const name of STATES) {
     const st = pack.states[name];
+    if (st.durations !== undefined) {
+      if (pack.format < 2) errors.push(`states.${name}: durations needs "format": 2`);
+      if (st.durations.length !== st.frames) {
+        errors.push(`states.${name}: durations has ${st.durations.length} entries, expected one per frame (${st.frames})`);
+      }
+    }
     const file = join(dir, st.file);
     if (!existsSync(file)) {
       errors.push(`states.${name}: file ${st.file} not found`);

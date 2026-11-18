@@ -310,37 +310,57 @@ function drawSleeping(f, { breath = 0 } = {}) {
 // ---------------------------------------------------------------------------
 // States.
 
-const IDLE_TIPS = [
-  [43, 29],
-  [44, 28],
-  [45, 27],
-  [45, 26],
-  [44, 26],
-  [43, 27],
-  [42, 28],
-  [42, 29],
+// CPU (docs/perf.md): every frame change costs ~3 ms of CPU in WebView2, so
+// idle and sleeping mostly hold a pose (format 2 per-frame durations, in ms)
+// and change only briefly: a blink, a tail swish, a breath, the next "z".
+
+/** Resting tail tip; the swish moves through the others and back. */
+const TAIL_REST = [43, 29];
+const SWISH = [[44, 28], [45, 26], [44, 26], [42, 28]];
+
+/** idle: [eyes, tail tip, ms]. Sit, blink, sit, swish, sit, double blink. */
+const IDLE = [
+  ["open", TAIL_REST, 4000],
+  ["blink", TAIL_REST, 150],
+  ["open", TAIL_REST, 3500],
+  ...SWISH.map((tip) => ["open", tip, 150]),
+  ["open", TAIL_REST, 5000],
+  ["blink", TAIL_REST, 120],
+  ["open", TAIL_REST, 160],
+  ["blink", TAIL_REST, 120],
+];
+
+const Z = [
+  [GLYPH.zSmall, 25, 20],
+  [GLYPH.zMid, 31, 12],
+  [GLYPH.zBig, 38, 3],
+];
+
+/** sleeping: [breath, visible z indices, ms]. Breathing out (0) and in (1),
+ * each held ~2.6 s; the "z"s rise one by one every 1.3 s, then a pause. */
+const SLEEPING = [
+  [0, [0], 1300],
+  [0, [0, 1], 1300],
+  [1, [0, 1, 2], 1300],
+  [1, [1, 2], 1300],
+  [0, [2], 1300],
+  [0, [], 1300],
+  [1, [], 2600],
 ];
 
 const STATES = {
   idle: {
-    fps: 5,
+    durations: IDLE.map(([, , ms]) => ms),
     loop: true,
-    frames: IDLE_TIPS.map((tip, i) => (f) => drawSitting(f, { tip, eyes: i === 6 ? "blink" : "open" })),
+    frames: IDLE.map(([eyes, tip]) => (f) => drawSitting(f, { tip, eyes })),
   },
   sleeping: {
-    fps: 3,
+    durations: SLEEPING.map(([, , ms]) => ms),
     loop: true,
-    frames: [0, 1, 2, 3].map((i) => (f) => {
-      drawSleeping(f, { breath: i >= 2 ? 1 : 0 });
-      const z = [
-        [GLYPH.zSmall, 25, 20],
-        [GLYPH.zMid, 31, 12],
-        [GLYPH.zBig, 38, 3],
-      ];
-      // Each frame shows one more "z" rising from the head; the last frame clears them.
-      for (let k = 0; k < Math.min(i + 1, 3); k++) {
-        if (i === 3 && k === 0) continue;
-        const [g, x, y] = z[k];
+    frames: SLEEPING.map(([breath, zs]) => (f) => {
+      drawSleeping(f, { breath });
+      for (const k of zs) {
+        const [g, x, y] = Z[k];
         f.fillOutlined(glyph(g, x, y), C.zblue);
       }
     }),
@@ -353,10 +373,12 @@ const STATES = {
       for (let k = 0; k < i; k++) f.fillOutlined(glyph(GLYPH.dot, 35 + k * 4, 2), C.white);
     }),
   },
+  // Short-lived states stay lively. thinking (during a sync) keeps plain fps;
+  // alert hops quickly, then holds so a long-unanswered alert stays cheap.
   alert: {
-    fps: 8,
+    durations: [100, 100, 120, 100, 1400],
     loop: true,
-    frames: [0, -1, -2, -1, 0, 0].map((dy) => (f) => {
+    frames: [0, -1, -2, -1, 0].map((dy) => (f) => {
       drawSitting(f, { dy, tip: [44, 23 + dy], eyes: "wide", ears: "tall" });
       f.fillOutlined(glyph(GLYPH.bang, 40, 3), C.yellow);
     }),
@@ -380,18 +402,29 @@ function renderStrip(state) {
   return { strip, frames };
 }
 
-/** All frames, one row per state, scaled up, on a checkerboard so transparency is visible. */
+/** Frame durations in ms (format 2), or each frame's 1 / fps. */
+function durationsOf(state) {
+  return state.durations ?? state.frames.map(() => 1000 / state.fps);
+}
+
+/**
+ * All frames, one row per state, scaled up, on a checkerboard so transparency
+ * is visible. A yellow bar under each frame shows how long it is held: full
+ * cell width = 5 s or more.
+ */
 function renderPreview(rendered) {
   const maxFrames = Math.max(...rendered.map((r) => r.frames.length));
   const gap = 4;
+  const bar = 6;
   const cell = W * PREVIEW_SCALE;
+  const rowH = cell + gap + bar;
   const pw = maxFrames * cell + (maxFrames + 1) * gap;
-  const ph = rendered.length * cell + (rendered.length + 1) * gap;
+  const ph = rendered.length * rowH + (rendered.length + 1) * gap;
   const px = new Uint8Array(pw * ph).fill(C.outline);
   rendered.forEach((r, row) => {
     r.frames.forEach((frame, col) => {
       const ox = gap + col * (cell + gap);
-      const oy = gap + row * (cell + gap);
+      const oy = gap + row * (rowH + gap);
       for (let y = 0; y < cell; y++) {
         for (let x = 0; x < cell; x++) {
           const v = frame[Math.floor(y / PREVIEW_SCALE) * W + Math.floor(x / PREVIEW_SCALE)];
@@ -399,6 +432,8 @@ function renderPreview(rendered) {
           px[(oy + y) * pw + ox + x] = v || checker;
         }
       }
+      const len = Math.max(2, Math.round((Math.min(r.durations[col], 5000) / 5000) * cell));
+      for (let y = 0; y < bar; y++) for (let x = 0; x < len; x++) px[(oy + cell + gap + y) * pw + ox + x] = C.yellow;
     });
   });
   return encodeIndexedPng(pw, ph, px, PALETTE);
@@ -408,7 +443,7 @@ function main() {
   mkdirSync(OUT_DIR, { recursive: true });
   const pack = {
     $schema: "../pack.schema.json",
-    format: 1,
+    format: 2,
     name: "Gray Tabby (placeholder)",
     author: "AIchemist Desktop Buddy contributors (generated by tools/gen-sprites.mjs)",
     license: "MIT",
@@ -421,8 +456,16 @@ function main() {
     const file = `${name}.png`;
     // The sprite strips do not need the preview-only palette entries.
     writeFileSync(join(OUT_DIR, file), encodeIndexedPng(W * frames.length, H, strip, PALETTE.slice(0, C.bg)));
-    pack.states[name] = { file, frames: frames.length, fps: state.fps, loop: state.loop };
-    rendered.push({ name, frames });
+    // fps is required by the schema; 0 for states timed by durations.
+    if (state.durations && state.durations.length !== frames.length) throw new Error(`${name}: durations length != frames`);
+    pack.states[name] = {
+      file,
+      frames: frames.length,
+      fps: state.fps ?? 0,
+      ...(state.durations && { durations: state.durations }),
+      loop: state.loop,
+    };
+    rendered.push({ name, frames, durations: durationsOf(state) });
   }
   writeFileSync(join(OUT_DIR, "pack.json"), JSON.stringify(pack, null, 2) + "\n");
   writeFileSync(join(OUT_DIR, "preview.png"), renderPreview(rendered));
