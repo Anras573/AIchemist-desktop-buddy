@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-snooze-all"
+description = "Enables the snooze_all command without any pre-configured scope."
+commands.allow = ["snooze_all"]
+
+[[permission]]
+identifier = "deny-snooze-all"
+description = "Denies the snooze_all command without any pre-configured scope."
+commands.deny = ["snooze_all"]

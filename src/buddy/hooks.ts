@@ -2,8 +2,8 @@
 // reports the interaction to Rust and suppresses the browser context menu;
 // these handlers add the UI on top.
 //
-// - 2.3: `onCatClick` opens the upcoming popover, `onCatContextMenu` shows
-//   the cat menu (`show_cat_menu`).
+// - 2.3 (main.ts): `onCatClick` toggles the upcoming popover,
+//   `onCatContextMenu` shows the cat menu (`show_cat_menu`).
 
 export type CatHandler = (e: MouseEvent) => void;
 

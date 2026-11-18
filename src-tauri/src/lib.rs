@@ -18,15 +18,20 @@ pub mod sync;
 use tauri::Manager;
 
 pub mod already_running;
+pub mod app_storage;
 pub mod buddy_state;
 pub mod buddy_window;
+pub mod cat_menu;
 pub mod click_through;
 pub mod logger;
 pub mod pause;
 pub mod placement;
+pub mod popover_window;
 pub mod settings_service;
 pub mod settings_window;
+pub mod snooze;
 pub mod tray;
+pub mod upcoming;
 
 /// Label of the buddy window declared in `tauri.conf.json`.
 pub const BUDDY_WINDOW_LABEL: &str = "buddy";
@@ -48,12 +53,24 @@ pub fn run() {
             settings_service::get_settings,
             settings_service::update_settings,
             settings_window::list_monitors,
+            upcoming::list_upcoming,
+            upcoming::list_tasks,
+            upcoming::create_task,
+            upcoming::update_task,
+            upcoming::set_task_done,
+            upcoming::delete_task,
+            snooze::snooze_all,
+            cat_menu::show_cat_menu,
+            cat_menu::open_settings,
+            popover_window::set_popover_open,
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().app_log_dir() {
                 logger::init(&dir);
             }
             pause::init(app.handle());
+            app_storage::init(app.handle());
+            popover_window::init(app.handle());
             // Before the settings service, which applies the idle timeout.
             buddy_state::init(app.handle());
             let settings = settings_service::init(app.handle());
@@ -62,6 +79,7 @@ pub fn run() {
                 buddy_window::init(app.handle(), &buddy, settings.appearance)?;
             }
             tray::init(app.handle())?;
+            cat_menu::init(app.handle())?;
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -133,6 +151,10 @@ mod tests {
         );
         for perm in buddy["permissions"].as_array().unwrap() {
             let perm = perm.as_str().unwrap();
+            if perm == "allow-open-settings" {
+                // The buddy's cat menu opens the window (domain::ipc).
+                continue;
+            }
             assert!(
                 !perm.contains("settings") && !perm.contains("monitors"),
                 "buddy must not get {perm}"

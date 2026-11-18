@@ -1,13 +1,23 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "buddy",
-  "description": "Permissions for the buddy window. Grant only the IPC commands the buddy needs (spec section 9). core:event:allow-listen lets the page listen to buddy-state-changed and appearance-changed; it never unlistens or emits.",
+  "description": "Permissions for the buddy window. Grant only the IPC commands the buddy needs (spec section 9). core:event:allow-listen lets the page listen to buddy-state-changed, appearance-changed, open-popover and upcoming-changed; it never unlistens or emits.",
   "windows": ["buddy"],
   "permissions": [
     "allow-set-hit-regions",
     "allow-get-buddy-state",
     "allow-report-interaction",
     "allow-get-appearance",
+    "allow-list-upcoming",
+    "allow-list-tasks",
+    "allow-create-task",
+    "allow-update-task",
+    "allow-set-task-done",
+    "allow-delete-task",
+    "allow-snooze-all",
+    "allow-show-cat-menu",
+    "allow-open-settings",
+    "allow-set-popover-open",
     "core:event:allow-listen"
   ]
 }

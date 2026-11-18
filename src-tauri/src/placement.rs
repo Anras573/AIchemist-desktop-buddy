@@ -136,6 +136,65 @@ pub fn place(screen: &Screen, corner: ScreenCorner, size_css: (u32, u32)) -> Pla
     }
 }
 
+/// Size of the upcoming popover in CSS pixels (task 2.3). It does not fit
+/// the bubble area, so the window grows while the popover is open.
+pub const POPOVER_WIDTH: u32 = 288;
+/// Height of the upcoming popover in CSS pixels.
+pub const POPOVER_HEIGHT: u32 = 360;
+
+/// Window content size in CSS pixels while the popover is open.
+///
+/// The cat must not move, so the window grows away from its corner:
+/// - bottom corners: the popover sits above the cat, in place of the bubble
+///   area: height `popover + cat + 2 * padding`;
+/// - top corners: the bubble area stays above the cat and the popover goes
+///   below it: height `bubble + cat + popover + 2 * padding`.
+pub fn popover_window_size_css(cat_scale: u32, corner: ScreenCorner) -> (u32, u32) {
+    let cat = FRAME_SIZE.saturating_mul(cat_scale.max(1));
+    let width = POPOVER_WIDTH.max(BUBBLE_AREA_WIDTH).max(cat) + 2 * WINDOW_PADDING;
+    let above_cat = match corner {
+        ScreenCorner::BottomLeft | ScreenCorner::BottomRight => {
+            POPOVER_HEIGHT.max(BUBBLE_AREA_HEIGHT)
+        }
+        ScreenCorner::TopLeft | ScreenCorner::TopRight => BUBBLE_AREA_HEIGHT + POPOVER_HEIGHT,
+    };
+    (width, above_cat + cat + 2 * WINDOW_PADDING)
+}
+
+/// Places a window of `grown_css` so that the content a window of
+/// `normal_css` would show at its corner side stays where it is: the
+/// window extends left for right corners, up for bottom corners, and right
+/// or down otherwise. The top-left corner is clamped into the work area.
+pub fn place_grown(
+    screen: &Screen,
+    corner: ScreenCorner,
+    normal_css: (u32, u32),
+    grown_css: (u32, u32),
+) -> Placement {
+    let normal = place(screen, corner, normal_css);
+    let grown = place(screen, corner, grown_css);
+    let (w, h) = (i64::from(grown.width), i64::from(grown.height));
+    let x = match corner {
+        ScreenCorner::TopRight | ScreenCorner::BottomRight => {
+            i64::from(normal.x) + i64::from(normal.width) - w
+        }
+        ScreenCorner::TopLeft | ScreenCorner::BottomLeft => i64::from(normal.x),
+    };
+    let y = match corner {
+        ScreenCorner::BottomLeft | ScreenCorner::BottomRight => {
+            i64::from(normal.y) + i64::from(normal.height) - h
+        }
+        ScreenCorner::TopLeft | ScreenCorner::TopRight => i64::from(normal.y),
+    };
+    let area = screen.work_area;
+    Placement {
+        x: (x as f64).max(area.x).round() as i32,
+        y: (y as f64).max(area.y).round() as i32,
+        width: grown.width,
+        height: grown.height,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,5 +314,58 @@ mod tests {
         // No primary reported: first monitor.
         assert_eq!(select_screen(&screens, None, Some("Gone")), Some(&a));
         assert_eq!(select_screen(&[], None, None), None);
+    }
+
+    #[test]
+    fn popover_size_per_corner() {
+        assert_eq!(
+            popover_window_size_css(2, ScreenCorner::BottomRight),
+            (304, 472)
+        );
+        assert_eq!(
+            popover_window_size_css(2, ScreenCorner::TopLeft),
+            (304, 592)
+        );
+        assert_eq!(
+            popover_window_size_css(8, ScreenCorner::BottomLeft),
+            (400, 760)
+        );
+    }
+
+    #[test]
+    fn grown_window_keeps_the_cat_in_place() {
+        let s = screen("A", 0.0, 0.0, 1920.0, 1040.0, 1.5);
+        let normal = (256, 232);
+        for corner in [
+            ScreenCorner::BottomRight,
+            ScreenCorner::BottomLeft,
+            ScreenCorner::TopRight,
+            ScreenCorner::TopLeft,
+        ] {
+            let n = place(&s, corner, normal);
+            let g = place_grown(&s, corner, normal, popover_window_size_css(2, corner));
+            // The cat hugs the corner side horizontally ...
+            match corner {
+                ScreenCorner::BottomRight | ScreenCorner::TopRight => {
+                    assert_eq!(g.x + g.width as i32, n.x + n.width as i32)
+                }
+                _ => assert_eq!(g.x, n.x),
+            }
+            // ... and the bottom (bottom corners) or its offset from the
+            // top (top corners) stays.
+            match corner {
+                ScreenCorner::BottomRight | ScreenCorner::BottomLeft => {
+                    assert_eq!(g.y + g.height as i32, n.y + n.height as i32)
+                }
+                _ => assert_eq!(g.y, n.y),
+            }
+        }
+    }
+
+    #[test]
+    fn grown_window_is_clamped_into_the_work_area() {
+        let s = screen("A", 0.0, 0.0, 400.0, 300.0, 1.0);
+        let g = place_grown(&s, ScreenCorner::BottomRight, (256, 232), (304, 472));
+        assert_eq!((g.x, g.y), (88, 0));
     }
 }

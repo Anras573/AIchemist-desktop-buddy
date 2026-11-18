@@ -454,3 +454,81 @@ listeners, `get_settings` / `update_settings`), `src-tauri/src/settings_window.r
 8. [ ] Launch the app a second time while it runs: an alert "AIchemist Buddy
    is already running. Find it in the menu bar." appears in front; click OK.
    Launch twice quickly: only one alert. No second cat appears.
+
+## Upcoming popover and cat menu (task 2.3)
+
+Code: `src/buddy/popover.ts` (popover), `src/buddy/format.ts` (pure
+formatting), `src-tauri/src/popover_window.rs` (`set_popover_open`),
+`src-tauri/src/placement.rs` (`popover_window_size_css`, `place_grown`),
+`src-tauri/src/cat_menu.rs` (native menu, `show_cat_menu`, `open_settings`),
+`src-tauri/src/upcoming.rs` (`list_upcoming` and the task commands),
+`src-tauri/src/app_storage.rs` (database handle), `src-tauri/src/snooze.rs`
+(`snooze_all`, stub until 2.2).
+
+- **Window.** The popover is 288 x 360 CSS px and does not fit the 240 x 120
+  bubble area. While it is open the page calls `set_popover_open` and Rust
+  grows the window away from its corner, so the cat stays where it is:
+  bottom corners grow up (popover above the cat, 304 x 472 at scale 2), top
+  corners grow down (bubble area above the cat, popover below it, 304 x 592).
+  Closing restores the normal size. Display changes while it is open keep the
+  grown size (`buddy_window::reposition` reads the flag).
+- **Hit regions.** The popover box plus 2 px is reported as a third region
+  while it is shown (the window region clips drawing on Windows).
+- **Open / close.** Left-click on the cat toggles it; the tray "Upcoming"
+  and the cat menu emit `open-popover`. Escape, the close button, a second
+  click on the cat or 60 s without pointer/keyboard activity in the popover
+  close it. Opening never focuses the window; only the "Add task" view
+  focuses the title field.
+- **Cat menu.** Native `Menu::popup` at the cursor, run from the event loop
+  (not inside the WebView2 IPC callback). Item ids are prefixed `cat-` so the
+  tray handler, which sees every menu event, ignores them.
+
+### Verified on Windows (2026-11-18, Windows 11 23H2, 3440 x 1440 at 100%)
+
+Release build. The desktop was in active use by its owner during the check,
+so no real mouse input was injected; page events were dispatched through the
+WebView2 DevTools port and the result checked with screenshots,
+`GetWindowRect` and `WindowFromPoint`.
+
+- [x] Click on the cat: the window grows from 256 x 232 to 304 x 472 with its
+  bottom-right corner fixed; the cat stays in place; the popover shows
+  "No meetings in the next 7 days" and the tasks.
+- [x] Add task: a blank title shows "must not be empty" (backend
+  validation) inline; an empty due time shows "Pick a date and time."; a
+  past due time shows the task with the red "overdue" badge; open tasks are
+  sorted by due time with "in N min".
+- [x] Mark done moves the task to the collapsed "Done (1)" section; its
+  delete button removes it and the section hides when empty.
+- [x] `WindowFromPoint` inside the popover returns the buddy; left of the
+  popover and next to the cat it returns the window underneath
+  (click-through intact). After closing, the popover area is click-through
+  again and the window is back to 256 x 232.
+- [x] Escape, a second click on the cat and the 60 s idle timeout close it.
+- [ ] Native cat menu and the tray "Upcoming" item: not exercised by hand
+  (would have popped a menu under the owner's cursor). Code path: tray
+  emits `open-popover` (unchanged since 1.A); cat menu items call the same
+  functions as the tray and the commands.
+
+### Manual test checklist (macOS, and the native menu on Windows) (task 2.3)
+
+1. [ ] Click the cat: the popover opens above it and the cat does not move
+   or flicker noticeably while the window grows. Click the cat again: it
+   closes and the window shrinks back.
+2. [ ] Set the corner to Top left / Top right in Settings: the popover opens
+   below the cat and the cat stays in place.
+3. [ ] Add a task with a title and a due time in the past: it shows as
+   "overdue". Submit an empty title: "must not be empty" shows under the
+   form. The native date/time picker opens and is usable (not clipped).
+4. [ ] Tick a task: it moves to "Done"; expand Done and delete it.
+5. [ ] Clicks next to the popover and next to the cat reach the app
+   underneath; clicks inside the popover do not.
+6. [ ] Right-click the cat: a native menu (Upcoming, Add task, Snooze all,
+   Settings, Quit) appears at the cursor. Upcoming opens the popover; Add
+   task opens it with the title field focused; Snooze all does nothing
+   visible (stub until 2.2, logged); Settings opens the settings window;
+   Quit exits.
+7. [ ] Menu bar / tray "Upcoming" opens the popover without activating the
+   app (the frontmost app keeps focus); Escape does not apply until you
+   click into the popover. It closes after 60 s untouched.
+8. [ ] Memory with the popover open and after closing it
+   (`tools/measure-memory.sh --pid PID`); record in `docs/perf.md`.

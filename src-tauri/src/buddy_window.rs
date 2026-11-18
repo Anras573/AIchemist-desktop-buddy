@@ -112,11 +112,14 @@ pub fn reposition<R: Runtime>(window: &WebviewWindow<R>) -> tauri::Result<()> {
     else {
         return Ok(()); // No monitor at all (e.g. all displays asleep).
     };
-    let target = placement::place(
-        screen,
-        appearance.corner,
-        placement::window_size_css(appearance.cat_scale),
-    );
+    let normal = placement::window_size_css(appearance.cat_scale);
+    let target = if crate::popover_window::is_open(window.app_handle()) {
+        // Grown while the upcoming popover is open; the cat stays in place.
+        let grown = placement::popover_window_size_css(appearance.cat_scale, appearance.corner);
+        placement::place_grown(screen, appearance.corner, normal, grown)
+    } else {
+        placement::place(screen, appearance.corner, normal)
+    };
     apply(window, target)
 }
 
