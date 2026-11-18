@@ -22,6 +22,7 @@ pub mod already_running;
 pub mod app_storage;
 pub mod buddy_state;
 pub mod buddy_window;
+pub mod calendar_sync;
 pub mod cat_menu;
 pub mod click_through;
 pub mod logger;
@@ -102,6 +103,9 @@ pub fn run() {
             cat_menu::init(app.handle())?;
             // After the settings service and the tray (task 4.1).
             system::init(app.handle());
+            // Last: the first sync starts at once and reports to the
+            // accounts, the scheduler and the tray.
+            calendar_sync::init(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!())

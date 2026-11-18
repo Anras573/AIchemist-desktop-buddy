@@ -22,18 +22,18 @@
 //! - CalDAV password, Graph refresh token: the keychain only.
 //! - Microsoft "signed in as" name: `account-identities.json` ([`identities`]).
 //!
-//! # Hooks for task 3.6 (sync engine)
+//! # Sync engine ([`crate::calendar_sync`])
 //!
 //! - Call [`set_sync_status`] for every `SyncUpdate::AccountStatus`: it
 //!   updates the account rows (`accounts-changed`) and the tray error item.
 //! - Build the engine with [`services`]`(app).providers`.
 //! - Account changes reach the engine as settings changes
 //!   ([`crate::settings_service::on_settings_changed`]).
-//! - [`sync_now`] is a stub that only logs; wire it to `SyncHandle::sync_now`.
+//! - [`sync_now`] forwards to `SyncHandle::sync_now` ([`crate::calendar_sync`]).
 //! - [`list_accounts`] reads the stored `sync_state` rows and
 //!   [`remove_account`] deletes cached events and the row through
-//!   [`crate::app_storage`] (skipped if the database did not open); until the
-//!   engine records syncs, rows show "never synced".
+//!   [`crate::app_storage`] (skipped if the database did not open); before the
+//!   first sync of this run, rows show the stored state.
 //!
 //! # Privacy
 //!
@@ -290,9 +290,10 @@ pub async fn sign_in_account(
     .await
 }
 
-/// `sync_now` (settings window only). **Stub until task 3.6** wires the
-/// sync engine (`SyncHandle::sync_now`); it only logs.
+/// `sync_now` (settings window only): starts a full sync of every account
+/// on the sync thread ([`crate::calendar_sync::sync_now`]). Returns at once;
+/// progress arrives as `accounts-changed`.
 #[tauri::command]
-pub fn sync_now() {
-    log::info!("sync requested; the sync engine is not wired yet (task 3.6)");
+pub fn sync_now(app: AppHandle) {
+    crate::calendar_sync::sync_now(&app);
 }

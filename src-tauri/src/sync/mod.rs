@@ -42,6 +42,10 @@
 //!   sync. The account's provider is dropped, so the next attempt re-creates
 //!   it through the factory and picks up new credentials.
 //!
+//! A provider or factory that panics is treated like an
+//! [`Error::Internal`](crate::domain::Error::Internal) of that account; the
+//! sync thread keeps running.
+//!
 //! [`FakeClock`]: crate::domain::FakeClock
 //! [`SyncState::Error`]: crate::domain::ipc::SyncState::Error
 //! [`Error::is_retryable`]: crate::domain::Error::is_retryable
