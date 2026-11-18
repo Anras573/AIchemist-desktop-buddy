@@ -137,8 +137,13 @@ jobs:
         if: runner.os == 'macOS'
         env:
           BUNDLE_DIR: ${{ matrix.bundle-dir }}
+        # The bundler removes the intermediate .app; check the one in the .dmg.
         run: |
-          app="$BUNDLE_DIR/macos/AIchemist Desktop Buddy.app"
+          dmg=$(ls "$BUNDLE_DIR"/dmg/*.dmg)
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
+          trap 'hdiutil detach "$mnt" -quiet || true' EXIT
+          app="$mnt/AIchemist Desktop Buddy.app"
           for bin in "$app"/Contents/MacOS/*; do
             archs=$(lipo -archs "$bin"); echo "$bin: $archs"
             case "$archs" in *x86_64*arm64*|*arm64*x86_64*) ;; *) echo "::error::not universal"; exit 1 ;; esac

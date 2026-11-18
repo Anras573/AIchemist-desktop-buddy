@@ -29,8 +29,8 @@ memory and near 0% CPU while idle ([measurements](docs/perf.md)).
 **Privacy.** All data stays on your computer: settings in a JSON file, tasks and the calendar
 cache in a local SQLite database, passwords and tokens only in the OS keychain (Windows
 Credential Manager, macOS Keychain). There is no telemetry, analytics or crash reporting. The
-app only connects to the calendar servers you configure, to Microsoft's login endpoints if you
-add a Microsoft 365 account, and, if you opt in, to GitHub to check for a new release. Logs never
+app only connects to the calendar servers you configure, to Microsoft's login and Graph
+endpoints if you add a Microsoft 365 account, and, if you opt in, to GitHub to check for a new release. Logs never
 contain passwords, tokens or event contents.
 
 > **Status: pre-release.** Not everything above is wired up yet on `main`:
