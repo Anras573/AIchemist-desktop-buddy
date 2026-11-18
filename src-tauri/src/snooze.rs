@@ -1,10 +1,9 @@
 //! "Snooze all" (spec 4.3): snooze the current bubble and everything queued
 //! behind it.
 //!
-//! **Stub until task 2.2** wires the scheduler: [`snooze_all_for`] validates the
-//! duration, logs and returns `Ok`. The `snooze_all` command and the cat
-//! menu's "Snooze all" both go through [`snooze_all_for`], so 2.2 only
-//! replaces its body.
+//! The `snooze_all` command and the cat menu's "Snooze all" both go through
+//! [`snooze_all_for`], which hands the duration to the scheduler
+//! ([`crate::reminders::snooze_all`]).
 
 use tauri::{AppHandle, Runtime};
 
@@ -12,7 +11,7 @@ use crate::domain::ipc::SnoozeAllRequest;
 use crate::domain::{Error, ReminderSettings, Result};
 
 /// Snoozes every shown and queued reminder for `minutes`.
-pub fn snooze_all_for<R: Runtime>(_app: &AppHandle<R>, minutes: u32) -> Result<()> {
+pub fn snooze_all_for<R: Runtime>(app: &AppHandle<R>, minutes: u32) -> Result<()> {
     if !ReminderSettings::SNOOZE_RANGE.contains(&minutes) {
         return Err(Error::invalid_input(format!(
             "snooze minutes must be in {}..={}",
@@ -20,9 +19,7 @@ pub fn snooze_all_for<R: Runtime>(_app: &AppHandle<R>, minutes: u32) -> Result<(
             ReminderSettings::SNOOZE_RANGE.end()
         )));
     }
-    // 2.2: forward to the scheduler (snooze the current bubble and the queue).
-    log::info!("snooze all for {minutes} min: no scheduler yet (task 2.2)");
-    Ok(())
+    crate::reminders::snooze_all(app, minutes)
 }
 
 /// The default snooze duration: the first configured option (spec 7.1).
@@ -34,8 +31,8 @@ pub fn default_minutes(reminders: &ReminderSettings) -> u32 {
         .unwrap_or(5)
 }
 
-/// IPC `snooze_all`. Async, so the scheduler call (2.2) never runs on the
-/// main thread.
+/// IPC `snooze_all`. Async, so the scheduler call never runs on the main
+/// thread.
 #[tauri::command]
 pub async fn snooze_all<R: Runtime>(app: AppHandle<R>, request: SnoozeAllRequest) -> Result<()> {
     snooze_all_for(&app, request.minutes)

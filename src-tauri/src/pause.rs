@@ -1,8 +1,10 @@
 //! The "Pause reminders" flag (spec 4.2, 7.5).
 //!
-//! In memory only for now. Task 2.2 wires it to the scheduler
-//! (`SchedulerDriver::set_paused`) and implements the `get_paused` /
-//! `set_paused` commands on top of [`is_paused`] and [`set_paused`].
+//! In memory only (a restart resumes reminders). [`set_paused`] forwards to
+//! the scheduler (`SchedulerDriver::set_paused`, through
+//! [`crate::reminders::scheduler_set_paused`]); the `get_paused` /
+//! `set_paused` commands in [`crate::reminders`] use [`is_paused`] and
+//! [`set_paused`].
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -40,7 +42,8 @@ pub fn set_paused<R: Runtime>(app: &AppHandle<R>, paused: bool) -> bool {
         return false;
     }
     crate::tray::sync_paused(app, paused);
-    // 2.2: forward to the scheduler here.
+    // Pausing clears the bubble; resuming replays what fell due (spec 7.5).
+    crate::reminders::scheduler_set_paused(app, paused);
     let _ = app.emit_to(BUDDY_WINDOW_LABEL, event::PAUSED_CHANGED, paused);
     true
 }

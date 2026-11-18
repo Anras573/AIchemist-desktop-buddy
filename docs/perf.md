@@ -303,6 +303,23 @@ which costs a few MB itself: closed 53.2 MB, popover open (window grown to
 304 x 472, 20 s settle) 55.6 MB, closed again 53.6 MB. The popover adds no
 process; it is DOM in the buddy page, and its lists are dropped on close.
 
+### Reminder bubble (task 2.2), Windows, local desktop
+
+2026-11-18, same machine, release build, kept config, default settings
+(sound on). `tools/measure-memory.ps1 -ProcessId PID`. Private WS / Private
+Bytes, MB.
+
+| State | Processes | Private WS | Private Bytes |
+|---|---|---|---|
+| Bubble showing (task reminder, cat in `alert`, chime played; measured ~10 s after it fired) | 6 | **59.5** | 90.5 |
+| Idle after a restart (scheduler and ledger writer running, no bubble; 30 s settle) | 5 | **53.3** | 78.4 |
+
+Playing the chime starts WebView2's audio service utility process (~3.5 MB
+private WS), which is why the bubble row has 6 processes. The bubble DOM
+itself costs less than the run-to-run noise. Idle stays at the M2 baseline
+(52-54 MB): the scheduler thread and the ledger writer thread sleep on
+condition variables. **Under 80 MB in both states.**
+
 ### CI runners
 
 | Date | Runner | Build | Config | Processes | Result |
@@ -330,6 +347,8 @@ process was attributed to the app at idle.
 - Frame durations (2026-11-17, task 2.1b, owner decision): idle and
   sleeping hold poses for seconds. CPU **0.51 % / 0.47 % of one core**,
   under the 1 % target; memory unchanged (53-56 MB private WS).
+- Reminders (2026-11-18, task 2.2): 53 MB private working set idle, 59.5 MB
+  with a bubble showing after the chime (audio service process added).
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 

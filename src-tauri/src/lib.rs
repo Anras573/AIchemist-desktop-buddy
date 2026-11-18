@@ -28,6 +28,7 @@ pub mod logger;
 pub mod pause;
 pub mod placement;
 pub mod popover_window;
+pub mod reminders;
 pub mod settings_service;
 pub mod settings_window;
 pub mod snooze;
@@ -72,6 +73,11 @@ pub fn run() {
             accounts::test_connection,
             accounts::sign_in_account,
             accounts::sync_now,
+            reminders::get_current_bubble,
+            reminders::dismiss_bubble,
+            reminders::snooze_bubble,
+            reminders::get_paused,
+            reminders::set_paused,
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().app_log_dir() {
@@ -84,6 +90,9 @@ pub fn run() {
             buddy_state::init(app.handle());
             let settings = settings_service::init(app.handle());
             accounts::init(app.handle());
+            // After pause, app_storage, buddy_state and settings: it reads
+            // all four.
+            reminders::init(app.handle());
             if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
                 click_through::init(app.handle(), &buddy)?;
                 buddy_window::init(app.handle(), &buddy, settings.appearance)?;
@@ -92,8 +101,14 @@ pub fn run() {
             cat_menu::init(app.handle())?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the Tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building the Tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Save the last reminder ledger before the process ends.
+                reminders::shutdown(app);
+            }
+        });
 }
 
 #[cfg(test)]

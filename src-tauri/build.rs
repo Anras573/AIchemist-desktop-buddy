@@ -28,6 +28,11 @@ fn main() {
         "test_connection",
         "sign_in_account",
         "sync_now",
+        "get_current_bubble",
+        "dismiss_bubble",
+        "snooze_bubble",
+        "get_paused",
+        "set_paused",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");
