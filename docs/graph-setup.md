@@ -103,16 +103,21 @@ These are identifiers, not secrets.
 
 ## 6. Connect in AIchemist Desktop Buddy
 
-1. Open **Settings** > **Accounts** > **Add account** > **Microsoft 365 / Outlook**.
-2. **Client ID:** paste the Application (client) ID.
-3. **Tenant:** `common`, `consumers`, `organizations`, or your Directory (tenant) ID, as in the
-   table in step 1.5. A verified domain such as `contoso.onmicrosoft.com` also works in place of
-   the tenant ID.
-4. Save, then select **Sign in**. Your browser opens the Microsoft sign-in page. Pick the account,
-   accept the permissions, and when the page says *You are signed in*, close the tab.
-5. Choose which calendars to include.
+1. Open **Settings** (tray or menu bar icon > **Open Settings**), scroll to **Calendar accounts**
+   and select **Add account…**. Choose **Microsoft 365 / Outlook**.
+2. **Name:** anything, e.g. `Work`.
+3. **Application (client) ID:** paste the Application (client) ID.
+4. **Tenant:** `common` (the default), `consumers`, `organizations`, or your Directory (tenant) ID,
+   as in the table in step 1.5. A verified domain such as `contoso.onmicrosoft.com` also works in
+   place of the tenant ID.
+5. Select **Add and sign in**. Your browser opens the Microsoft sign-in page. Pick the account,
+   accept the permissions, and when the page says *You are signed in*, close the tab. The account
+   row then shows *signed in as* your sign-in name.
+6. Select **Calendars…** on the account row and tick the calendars to include.
 
-The sign-in waits 5 minutes for the browser; after that, select **Sign in** again.
+The sign-in waits 5 minutes for the browser; after that, select **Sign in** (or **Sign in again**)
+on the account row. Closing the Settings window cancels a sign-in that is still waiting.
+**Test connection** checks the saved sign-in against Microsoft Graph.
 
 ## Work and school accounts: consent
 
@@ -128,11 +133,11 @@ If you see **Need admin approval**, either:
 
 If an admin later revokes the consent, or your password changes, or the refresh token expires
 after a long time unused, the account row in Settings shows an authentication error. Select
-**Sign in** again.
+**Sign in again** on the account row.
 
 ## Signing out
 
-Removing the account in Settings deletes its refresh token from the keychain. To also revoke the
+Removing the account in Settings (**Remove…** on its row, then **Remove**) deletes its refresh token from the keychain. To also revoke the
 app's access on Microsoft's side, remove it at [myapplications.microsoft.com](https://myapplications.microsoft.com)
 (work or school) or [account.live.com/consent/Manage](https://account.live.com/consent/Manage)
 (personal).
@@ -146,5 +151,5 @@ app's access on Microsoft's side, remove it at [myapplications.microsoft.com](ht
 | `AADSTS700016` / `unauthorized_client` | Wrong client ID, or the tenant in Settings does not match the supported account types (for example `consumers` with a single-tenant registration). |
 | `AADSTS50020` or "account does not exist in tenant" | You signed in with an account the registration does not support. Check step 1.5 and the tenant. |
 | `access_denied` | You cancelled, or declined consent. See [consent](#work-and-school-accounts-consent). |
-| `invalid_grant` ... "sign in again" | The saved sign-in expired or was revoked. Select **Sign in**. |
+| `invalid_grant` ... "sign in again" | The saved sign-in expired or was revoked. Select **Sign in again** on the account row. |
 | Sign-in timed out | The browser did not come back within 5 minutes, or a firewall blocked `localhost`. Try again. |

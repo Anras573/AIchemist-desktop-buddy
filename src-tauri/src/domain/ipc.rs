@@ -537,6 +537,12 @@ pub struct AccountStatus {
     /// Whether a secret (password or refresh token) is in the keychain.
     /// A Graph account without one needs [`command::SIGN_IN_ACCOUNT`].
     pub has_secret: bool,
+    /// Which Microsoft account a Graph account is signed in to (the sign-in
+    /// name, usually the email address, else the display name), if known.
+    /// Always `None` for CalDAV. Personal data: never logged. (Added
+    /// 2026-11-17, approved contract change.)
+    #[serde(default)]
+    pub signed_in_as: Option<String>,
 }
 
 /// Request for [`command::ADD_ACCOUNT`].

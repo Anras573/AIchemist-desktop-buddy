@@ -70,6 +70,7 @@ label.check {
 }
 
 input[type="text"],
+input[type="password"],
 input[type="number"],
 select {
   display: block;
@@ -130,4 +131,113 @@ input[type="range"] {
 
 #status.failed {
   color: var(--error);
+}
+
+/* ----- Calendar accounts ----- */
+
+#accounts {
+  padding-top: 0;
+}
+
+.accounts {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.account {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+
+.account:first-child {
+  border-top: none;
+}
+
+.account-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.badge.state-ok {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.badge.state-error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 3px 10px;
+}
+
+#add-open {
+  margin-top: 12px;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 8px;
+  padding: 4px 12px 12px;
+}
+
+.panel.confirm {
+  border-color: var(--error);
+}
+
+.label {
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+.message {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+.message:empty {
+  display: none;
+}
+
+.message.ok {
+  color: var(--ok);
+}
+
+.message.failed {
+  color: var(--error);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+
+code {
+  font-size: 12px;
 }
