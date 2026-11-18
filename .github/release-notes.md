@@ -13,7 +13,7 @@ AIchemist Desktop Buddy {{VERSION}}.
 |---|---|
 | Windows 10/11 (x64), installer | `AIchemist-Desktop-Buddy_{{VERSION}}_x64-setup.exe` |
 | Windows 10/11 (x64), MSI | `AIchemist-Desktop-Buddy_{{VERSION}}_x64_en-US.msi` |
-| macOS 11+ (Apple silicon and Intel) | `AIchemist-Desktop-Buddy_{{VERSION}}_universal.dmg` |
+| macOS (Apple silicon and Intel) | `AIchemist-Desktop-Buddy_{{VERSION}}_universal.dmg` |
 | Linux (best-effort, untested) | `.deb` and `.AppImage`, when the Linux build succeeded |
 
 Verify a download:

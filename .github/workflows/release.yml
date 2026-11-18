@@ -125,7 +125,27 @@ jobs:
         env:
           # linuxdeploy (AppImage) is itself an AppImage; runners lack FUSE.
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          # macOS: ad-hoc signature ("-"), no certificate or Apple account.
+          # Gatekeeper still treats the app as from an unidentified developer
+          # (README workaround applies), but without a sealed bundle signature
+          # a quarantined app is reported as "damaged" on Apple silicon and
+          # Open Anyway does not help. Ignored on other platforms.
+          APPLE_SIGNING_IDENTITY: "-"
         run: npm run tauri build -- ${{ matrix.tauri-args }}
+
+      - name: Check the macOS app (universal, ad-hoc signed)
+        if: runner.os == 'macOS'
+        env:
+          BUNDLE_DIR: ${{ matrix.bundle-dir }}
+        run: |
+          app="$BUNDLE_DIR/macos/AIchemist Desktop Buddy.app"
+          for bin in "$app"/Contents/MacOS/*; do
+            archs=$(lipo -archs "$bin"); echo "$bin: $archs"
+            case "$archs" in *x86_64*arm64*|*arm64*x86_64*) ;; *) echo "::error::not universal"; exit 1 ;; esac
+          done
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app" 2>&1 | tee sig.txt
+          grep -q 'Signature=adhoc' sig.txt
 
       # Release asset names: no spaces (GitHub would turn them into dots).
       - name: Collect installers
