@@ -17,6 +17,7 @@ pub mod sync;
 
 use tauri::Manager;
 
+pub mod accounts;
 pub mod already_running;
 pub mod app_storage;
 pub mod buddy_state;
@@ -63,6 +64,14 @@ pub fn run() {
             cat_menu::show_cat_menu,
             cat_menu::open_settings,
             popover_window::set_popover_open,
+            accounts::list_accounts,
+            accounts::add_account,
+            accounts::update_account,
+            accounts::remove_account,
+            accounts::list_account_calendars,
+            accounts::test_connection,
+            accounts::sign_in_account,
+            accounts::sync_now,
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().app_log_dir() {
@@ -74,6 +83,7 @@ pub fn run() {
             // Before the settings service, which applies the idle timeout.
             buddy_state::init(app.handle());
             let settings = settings_service::init(app.handle());
+            accounts::init(app.handle());
             if let Some(buddy) = app.get_webview_window(BUDDY_WINDOW_LABEL) {
                 click_through::init(app.handle(), &buddy)?;
                 buddy_window::init(app.handle(), &buddy, settings.appearance)?;
@@ -146,7 +156,16 @@ mod tests {
             serde_json::json!([
                 "allow-get-settings",
                 "allow-update-settings",
-                "allow-list-monitors"
+                "allow-list-monitors",
+                "allow-list-accounts",
+                "allow-add-account",
+                "allow-update-account",
+                "allow-remove-account",
+                "allow-list-account-calendars",
+                "allow-test-connection",
+                "allow-sign-in-account",
+                "allow-sync-now",
+                "core:event:allow-listen"
             ])
         );
         for perm in buddy["permissions"].as_array().unwrap() {
@@ -156,7 +175,11 @@ mod tests {
                 continue;
             }
             assert!(
-                !perm.contains("settings") && !perm.contains("monitors"),
+                !perm.contains("settings")
+                    && !perm.contains("monitors")
+                    && !perm.contains("account")
+                    && !perm.contains("sync")
+                    && !perm.contains("connection"),
                 "buddy must not get {perm}"
             );
         }

@@ -24,6 +24,7 @@ import {
   parseWholeNumber,
   timeForInput,
 } from "./form";
+import { initAccounts } from "./accounts-view";
 
 // Minimal IPC bridge, as in the buddy page: avoids @tauri-apps/api.
 type Invoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
@@ -207,3 +208,4 @@ async function load(): Promise<void> {
 form.addEventListener("submit", (e) => e.preventDefault());
 form.addEventListener("input", showOutputs);
 void load();
+initAccounts();

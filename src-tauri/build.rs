@@ -20,6 +20,14 @@ fn main() {
         "show_cat_menu",
         "open_settings",
         "set_popover_open",
+        "list_accounts",
+        "add_account",
+        "update_account",
+        "remove_account",
+        "list_account_calendars",
+        "test_connection",
+        "sign_in_account",
+        "sync_now",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to run tauri-build");

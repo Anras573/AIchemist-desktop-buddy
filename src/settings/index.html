@@ -87,9 +87,68 @@
           <span class="hint">(opt-in; saved now, takes effect in a later version)</span></label>
       </fieldset>
 
+    </form>
+
+    <!-- A separate form: account changes go through the account commands,
+         not the settings form's apply-on-change. -->
+    <form id="accounts" novalidate>
       <fieldset>
         <legend>Calendar accounts</legend>
-        <p class="hint">Coming soon.</p>
+        <p class="error" id="accounts-error"></p>
+        <ul id="account-list" class="accounts"></ul>
+        <p class="hint" id="no-accounts" hidden>No accounts yet. Add one to get meeting reminders.</p>
+        <button type="button" id="add-open">Add account…</button>
+
+        <div id="add-panel" class="panel" hidden>
+          <p class="label">Account type</p>
+          <div id="add-types"></div>
+
+          <label for="add.displayName">Name</label>
+          <input id="add.displayName" type="text" autocomplete="off" placeholder="e.g. Work" />
+          <p class="error" data-add-error="displayName"></p>
+
+          <div id="add-caldav" hidden>
+            <label for="add.serverUrl">Server URL</label>
+            <input id="add.serverUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+              placeholder="https://caldav.icloud.com" aria-describedby="server-hint" />
+            <p class="hint" id="server-hint">Must start with https://. iCloud: https://caldav.icloud.com.
+              Nextcloud: https://your-server/remote.php/dav.</p>
+            <p class="error" data-add-error="connection.serverUrl"></p>
+
+            <label for="add.username">User name</label>
+            <input id="add.username" type="text" autocomplete="off" spellcheck="false" />
+            <p class="error" data-add-error="connection.username"></p>
+
+            <label for="add.password">Password or app password</label>
+            <input id="add.password" type="password" autocomplete="new-password" aria-describedby="password-hint" />
+            <p class="hint" id="password-hint">iCloud needs an app-specific password (appleid.apple.com &gt;
+              Sign-In and Security &gt; App-Specific Passwords); your Apple ID password does not work.
+              Stored only in your system keychain, never in the settings file.</p>
+            <p class="error" data-add-error="secret"></p>
+          </div>
+
+          <div id="add-graph">
+            <p class="hint">First register your own app in Microsoft Entra ID (about five minutes, free):
+              see <code>docs/graph-setup.md</code> in the project repository. Then paste its ids here.</p>
+            <label for="add.clientId">Application (client) ID</label>
+            <input id="add.clientId" type="text" autocomplete="off" spellcheck="false"
+              placeholder="00000000-0000-0000-0000-000000000000" />
+            <p class="error" data-add-error="connection.clientId"></p>
+
+            <label for="add.tenant">Tenant</label>
+            <input id="add.tenant" type="text" autocomplete="off" spellcheck="false" value="common"
+              aria-describedby="tenant-hint" />
+            <p class="hint" id="tenant-hint">common, organizations, consumers, or your Directory (tenant) ID.
+              After adding, your browser opens the Microsoft sign-in page.</p>
+            <p class="error" data-add-error="connection.tenant"></p>
+          </div>
+
+          <p class="error" data-add-error=""></p>
+          <div class="actions">
+            <button type="submit" id="add-submit">Add and sign in</button>
+            <button type="button" id="add-cancel">Cancel</button>
+          </div>
+        </div>
       </fieldset>
     </form>
     <script type="module" src="./main.ts"></script>

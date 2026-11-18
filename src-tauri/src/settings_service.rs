@@ -7,9 +7,11 @@
 //! - [`SettingsService::update`] merges the `reminders`, `appearance` and
 //!   `system` sections of an [`UpdateSettingsRequest`] into the current
 //!   settings (accounts are untouched; they change only through the account
-//!   commands, task 3.5), validates, saves atomically and then notifies
-//!   listeners. Invalid input returns [`Error::Validation`] and changes
-//!   nothing.
+//!   commands, see [`crate::accounts`]), validates, saves atomically and then
+//!   notifies listeners. Invalid input returns [`Error::Validation`] and
+//!   changes nothing.
+//! - [`SettingsService::update_accounts`] does the same for the account
+//!   list, for the account commands.
 //! - **Live apply:** listeners registered with [`on_settings_changed`] get
 //!   `(old, new)` after every successful change. [`init`] registers one that
 //!   re-places the buddy window when the appearance changed. The scheduler
@@ -26,7 +28,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::domain::ipc::UpdateSettingsRequest;
-use crate::domain::{Error, Result, Settings};
+use crate::domain::{AccountConfig, Error, Result, Settings};
 use crate::storage::{load_settings, save_settings, SETTINGS_FILE_NAME};
 
 /// A settings listener: called with the old and the new settings after a
@@ -88,17 +90,44 @@ impl SettingsService {
         if new == old {
             return Ok(new);
         }
+        self.save_and_notify(&old, &new)?;
+        Ok(new)
+    }
+
+    /// Changes the account list (task 3.5): `change` edits a copy of the
+    /// accounts and returns a value; the result is validated, saved and
+    /// listeners are notified, as in [`SettingsService::update`]. An error
+    /// from `change`, a validation error or a failed save changes nothing.
+    /// Returns the saved settings and `change`'s value.
+    pub fn update_accounts<T>(
+        &self,
+        change: impl FnOnce(&mut Vec<AccountConfig>) -> Result<T>,
+    ) -> Result<(Settings, T)> {
+        let _serial = lock(&self.update_lock);
+        let old = self.current();
+        let mut new = old.clone();
+        let value = change(&mut new.accounts)?;
+        new.validate()
+            .map_err(|errors| Error::Validation { errors })?;
+        if new == old {
+            return Ok((new, value));
+        }
+        self.save_and_notify(&old, &new)?;
+        Ok((new, value))
+    }
+
+    fn save_and_notify(&self, old: &Settings, new: &Settings) -> Result<()> {
         let path = self.path.as_deref().ok_or_else(|| Error::Storage {
             message: "the settings directory is not available".into(),
         })?;
-        save_settings(path, &new)?;
+        save_settings(path, new)?;
         *lock(&self.current) = new.clone();
         // Copy the list so a listener may register another one.
         let listeners = lock(&self.listeners).clone();
         for listener in &listeners {
-            listener(&old, &new);
+            listener(old, new);
         }
-        Ok(new)
+        Ok(())
     }
 }
 

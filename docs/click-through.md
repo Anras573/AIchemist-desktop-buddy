@@ -532,3 +532,54 @@ WebView2 DevTools port and the result checked with screenshots,
    click into the popover. It closes after 60 s untouched.
 8. [ ] Memory with the popover open and after closing it
    (`tools/measure-memory.sh --pid PID`); record in `docs/perf.md`.
+
+## Calendar accounts in Settings (task 3.5)
+
+### Windows results (release build, temporary identifier `...dev35`)
+
+Driven through the settings page over the WebView2 DevTools protocol (a
+temporary `--remote-debugging-port` and a temporary hook that opens Settings,
+both reverted).
+
+- [x] Add account > CalDAV with `http://caldav.invalid.example`: "must be an
+  https:// URL" under Server URL; nothing saved.
+- [x] With an https URL: the account row appears; `cmdkey /list` shows
+  `<account id>:caldav-password.io.github.anras573.aichemistbuddy`;
+  `settings.json` has the account (URL, user name) and no password.
+- [x] Test connection against an unreachable host: "Network error: connection
+  failed ..." on the row. Calendars… shows the same error inline.
+- [x] Remove… > Remove (inline confirmation, no dialog): the row, the
+  settings entry and the Credential Manager entry are gone.
+- [x] Add account > Microsoft 365 / Outlook with client id `my-app`: "the
+  application (client) id must be a GUID ..." under the field.
+- [x] With a GUID client id, "Add and sign in" opens the system browser and
+  the row shows "Waiting for the sign-in in your browser…". Closing the
+  Settings window cancels it (log: "sign-in was cancelled").
+- [x] Settings open/close cycles return to the idle memory (docs/perf.md,
+  run 4).
+
+### Manual test checklist for macOS (task 3.5)
+
+1. [ ] Settings > Calendar accounts > Add account… > CalDAV with an
+   `http://` URL: an error shows under Server URL.
+2. [ ] Add a CalDAV account with an https URL and any password: Keychain
+   Access (login keychain) shows a generic password for service
+   `io.github.anras573.aichemistbuddy`, account `<id>:caldav-password`;
+   `~/Library/Application Support/io.github.anras573.aichemistbuddy/settings.json`
+   contains no password. (If macOS asks for keychain access, note it.)
+3. [ ] Test connection against an unreachable host: a Network error shows
+   on the row.
+4. [ ] Optional, with a real iCloud app-specific password
+   (`https://caldav.icloud.com`): Test connection says "Connection OK";
+   Calendars… lists the calendars; ticking one keeps it ticked after closing
+   and reopening Settings.
+5. [ ] Remove… > Remove: the row and the keychain item are gone.
+6. [ ] Add a Microsoft 365 / Outlook account with client id `my-app`: an
+   error shows under the client id.
+7. [ ] With a GUID client id: the default browser opens the Microsoft
+   sign-in page; close the Settings window: the waiting sign-in is cancelled
+   (log file: "sign-in was cancelled").
+8. [ ] Optional, with a real app registration (docs/graph-setup.md): after
+   signing in the row shows "signed in as <your sign-in name>", also after
+   quitting and relaunching.
+9. [ ] Light and dark mode both render the accounts section legibly.

@@ -277,6 +277,14 @@ close button). Private WS / Private Bytes, MB. Runs 1-2: before task 2.1
 | 1 | 52.6 / 77.6 (5 proc.) | 78.9 / 114.7 (6) | 58.7 / 84.5 (5) | |
 | 2 | 49.7 / 74.9 (5) | 72.1 / 106.9 (6) | 54.2 / 80.7 (5) | 55.0 / 81.5 (5) |
 | 3 (with 2.1) | 50.9 / 74.6 (5) | 69.2 / 104.5 (6) | 53.0 / 79.3 (5) | 53.5 / 79.8 (5) |
+| 4 (with 3.5 accounts section) | 54.2 / 78.2 (5) | 74.0 / 107.5 (6) | 56.3 / 81.4 (5) | 57.1 / 83.2 (5) |
+
+Run 4 (task 3.5, 2026-11-18): the settings page now also loads the accounts
+section and calls `list_accounts`; the keychain store, the provider factories
+and the account service are created at startup. Opened through a temporary
+trigger-file hook calling `tray::open_settings`, closed with `WM_CLOSE` (the
+same path as the close button). Same pattern as runs 1-3: the renderer goes
+away on close and the remainder stays flat across cycles.
 
 The open window adds one WebView2 renderer (~17 MB private WS) and ~4-7 MB
 in the shared browser process. Closing destroys the window and its renderer;

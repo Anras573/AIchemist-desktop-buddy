@@ -17,6 +17,7 @@ imports from it. The compiler enforces rustdoc on every public item in `domain` 
 | Date | Change | Task |
 |---|---|---|
 | 2026-11-17 | Command `list_monitors` (settings window; no request; response `Vec<MonitorInfo>` with `name`, `primary`, `width`, `height` in physical pixels, primary first) and type `ipc::MonitorInfo`. Additive. First approved contract change. | 2.4 (PR #19) |
+| 2026-11-17 | Field `ipc::AccountStatus::signed_in_as: Option<String>` (JSON `signedInAs`, `null` when unknown or for CalDAV): which Microsoft account a Graph account is signed in to, shown in Settings. Additive (`#[serde(default)]`). Persisted outside the keychain and outside `settings.json`, in `account-identities.json` next to it (see `src-tauri/src/accounts/identities.rs`). | 3.5 |
 
 ## Contents
 
