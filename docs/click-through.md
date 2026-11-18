@@ -653,3 +653,66 @@ Create tasks with the popover's add-task form (click the cat).
 6. [ ] Turn sound off in Settings: the next reminder shows without the chime.
 7. [ ] Clicks next to the bubble (inside the window, outside the bubble)
    reach the app underneath; the bubble buttons work.
+
+## Launch at login and update check (task 4.1)
+
+Code: `src-tauri/src/system/` (`autostart.rs`, `update_check.rs`, `mod.rs`
+with the one setup call `system::init`), tray item in `tray.rs`
+(`set_update_available`).
+
+- **Launch at login.** Applied at startup and whenever the setting changes.
+  The settings win: at startup the entry is written or removed to match
+  them, which also repairs an entry pointing at an old executable path.
+  Windows: string value `<identifier>` under
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` holding the quoted
+  path of the running exe. macOS: `~/Library/LaunchAgents/<identifier>.plist`
+  (`RunAtLoad`, the running executable as the program); launchd reads it at
+  the next login. Off removes only that value / file.
+- **Update check.** Off by default, and then no request is made and no
+  thread exists (the log says "update check is off; no update requests are
+  made"). On: one `GET` of the GitHub latest-release API one minute after
+  start (or after turning it on), then once a day; generic
+  `User-Agent: AIchemist-Buddy-update-check`, no other data. A newer tag
+  adds "Update available: vX.Y.Z" above Quit in the tray menu; it opens the
+  release page. Failures and rate limits are logged at info level only.
+- **Debug builds only:** `AICHEMIST_UPDATE_CHECK_DELAY_SECS=2` shortens the
+  first delay, `AICHEMIST_UPDATE_CHECK_FAKE_LATEST=v9.9.9` replaces the
+  network with a canned latest release.
+
+### Verified on Windows (2026-11-18, debug build, temporary identifier `...dev41`)
+
+Settings written before each launch; Run key and log read after 6 to 12 s.
+
+- [x] Both off: no Run value; log "update check is off; no update requests
+  are made" and no request.
+- [x] Launch at login on: Run value `io.github.anras573.aichemistbuddy.dev41`
+  = `"E:\...\target\debug\aichemist-desktop-buddy.exe"`. Off again: value
+  removed. Other values in the key untouched.
+- [x] Update check on, real GitHub: request succeeds (HTTP 404, no release
+  published yet, logged as up to date). The generic User-Agent is accepted.
+- [x] Fake latest `v9.9.9`: log `tray: showing "Update available: v9.9.9"`.
+  Fake `v0.1.0` (equal) and `v0.0.9` (older): up to date, no tray item.
+- [x] Live toggling through the settings listener is covered by unit tests
+  (`system::tests`).
+- [x] Memory (release build, both off): 51.6 MB private working set
+  (`tools/measure-memory.ps1`), unchanged from the 2.2 baseline.
+
+### Manual test checklist for macOS (task 4.1)
+
+1. [ ] Settings > System > Launch at login on:
+   `~/Library/LaunchAgents/io.github.anras573.aichemistbuddy.plist` exists
+   and its `ProgramArguments` is the path of the running
+   `.../AIchemist Desktop Buddy.app/Contents/MacOS/...` binary. macOS may
+   show a "Background item added" notification.
+2. [ ] Log out and in: the buddy starts. System Settings > General > Login
+   Items lists it under "Allow in the background".
+3. [ ] Launch at login off: the plist is gone.
+4. [ ] Check for updates off (default): `~/Library/Logs/<identifier>/aichemist-buddy.log`
+   says "update check is off"; no connection to api.github.com (Little Snitch
+   or `nettop`).
+5. [ ] Debug build with `AICHEMIST_UPDATE_CHECK_FAKE_LATEST=v9.9.9
+   AICHEMIST_UPDATE_CHECK_DELAY_SECS=2` and the check on: the menu bar menu
+   shows "Update available: v9.9.9"; clicking it opens
+   `https://github.com/Anras573/AIchemist-desktop-buddy/releases/tag/v9.9.9`.
+   With `v0.1.0` no item appears.
+6. [ ] Turn the check off while the item shows: the item disappears.

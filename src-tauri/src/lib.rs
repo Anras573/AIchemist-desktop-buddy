@@ -32,6 +32,7 @@ pub mod reminders;
 pub mod settings_service;
 pub mod settings_window;
 pub mod snooze;
+pub mod system;
 pub mod tray;
 pub mod upcoming;
 
@@ -99,6 +100,8 @@ pub fn run() {
             }
             tray::init(app.handle())?;
             cat_menu::init(app.handle())?;
+            // After the settings service and the tray (task 4.1).
+            system::init(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!())
