@@ -39,6 +39,8 @@ export async function loadDefaultPack(): Promise<SpritePack> {
         image: await loadImage(url),
         frames: s.frames,
         fps: s.fps,
+        // Format 2 (optional): per-frame durations replace fps.
+        durations: "durations" in s ? s.durations : undefined,
         loop: s.loop,
       };
       return [name, sprite] as const;

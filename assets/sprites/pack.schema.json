@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AIchemist Desktop Buddy sprite pack",
-  "description": "pack.json of a sprite pack. See docs/sprite-pack.md. Rules that need the PNG files (image size) are checked by tools/check-sprites.mjs.",
+  "description": "pack.json of a sprite pack. See docs/sprite-pack.md. Rules the schema cannot express (durations length = frames, durations only in format 2, image size) are checked by tools/check-sprites.mjs.",
   "type": "object",
   "required": ["format", "name", "author", "license", "frameSize", "states"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
     "format": {
-      "description": "Pack format version. Only 1 exists.",
-      "const": 1
+      "description": "Pack format version: 1, or 2 (adds per-frame durations). Format 1 packs stay valid.",
+      "enum": [1, 2]
     },
     "name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "author": { "type": "string", "minLength": 1, "maxLength": 200 },
@@ -59,10 +59,17 @@
           "maximum": 64
         },
         "fps": {
-          "description": "Playback rate. 0 means a static frame (only frame 0 is shown).",
+          "description": "Playback rate. 0 means a static frame (only frame 0 is shown). Ignored when durations is given.",
           "type": "integer",
           "minimum": 0,
           "maximum": 12
+        },
+        "durations": {
+          "description": "Format 2 only. How long each frame is shown, in milliseconds, one entry per frame (length = frames). Replaces fps when present.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "type": "integer", "minimum": 50, "maximum": 30000 }
         },
         "loop": {
           "description": "true: repeat. false: play once and hold the last frame.",

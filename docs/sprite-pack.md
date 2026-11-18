@@ -26,31 +26,38 @@ names in the pack folder: no directories, no `..`. Other files in the folder
 ```json
 {
   "$schema": "../pack.schema.json",
-  "format": 1,
+  "format": 2,
   "name": "Gray Tabby (placeholder)",
   "author": "AIchemist Desktop Buddy contributors",
   "license": "MIT",
   "frameSize": { "width": 48, "height": 48 },
   "states": {
-    "idle":     { "file": "idle.png",     "frames": 8, "fps": 5, "loop": true },
-    "sleeping": { "file": "sleeping.png", "frames": 4, "fps": 3, "loop": true },
+    "idle":     { "file": "idle.png",     "frames": 4, "fps": 0,
+                  "durations": [4000, 150, 3000, 150], "loop": true },
+    "sleeping": { "file": "sleeping.png", "frames": 4, "fps": 0,
+                  "durations": [1300, 1300, 1300, 2600], "loop": true },
     "thinking": { "file": "thinking.png", "frames": 4, "fps": 4, "loop": true },
     "alert":    { "file": "alert.png",    "frames": 6, "fps": 8, "loop": true }
   }
 }
 ```
 
+States can mix both timings: `thinking` and `alert` above use a fixed `fps`,
+`idle` and `sleeping` use per-frame `durations` (format 2) to hold a pose for
+seconds and change only briefly.
+
 | Field | Type | Meaning |
 |---|---|---|
 | `$schema` | string, optional | Editor hint only. Ignored by the app. |
-| `format` | `1` | Format version. Lets later versions change the format without guessing. |
+| `format` | `1` or `2` | Format version. `2` adds `durations`. Format 1 packs stay valid and play exactly as before. |
 | `name` | string, 1-64 chars | Shown in Settings, Appearance. |
 | `author` | string, 1-200 chars | Shown in Settings, Appearance. |
 | `license` | string, 1-100 chars | License of the art, preferably an SPDX id (`MIT`, `CC-BY-4.0`). |
 | `frameSize.width`, `frameSize.height` | integer, 8-256 | Size of one frame in pixels. Shared by all states. |
 | `states.<state>.file` | string | PNG file name in the pack folder, ending in `.png`. |
 | `states.<state>.frames` | integer, 1-64 | Number of frames in the strip. |
-| `states.<state>.fps` | integer, 0-12 | Playback rate. `0` means a static frame. |
+| `states.<state>.fps` | integer, 0-12 | Playback rate. `0` means a static frame (unless `durations` is given). Ignored when `durations` is given; write `0` then. |
+| `states.<state>.durations` | array of integers, 50-30000, optional, format 2 only | How long each frame is shown, in milliseconds. One entry per frame (length = `frames`). Replaces `fps`. |
 | `states.<state>.loop` | boolean | `true`: repeat forever. `false`: play once, then hold the last frame. |
 
 The machine-readable version is the JSON Schema at
@@ -80,9 +87,13 @@ bundled default.
 1. `pack.json` is valid JSON and matches `pack.schema.json`. In particular:
    - all four states (`idle`, `sleeping`, `thinking`, `alert`) are present, and no others;
    - `frames >= 1`;
-   - `fps` is an integer, either `0` or `1`-`12`.
-2. Every state's `file` exists in the pack folder and is a PNG.
-3. Each PNG is `frameSize.width * frames` wide and `frameSize.height` high.
+   - `fps` is an integer, either `0` or `1`-`12`;
+   - `format` is `1` or `2`;
+   - each `durations` entry is an integer from 50 to 30000 (ms).
+2. `durations` is used only with `"format": 2` and has exactly `frames`
+   entries (checked by `check-sprites.mjs`; the schema cannot express it).
+3. Every state's `file` exists in the pack folder and is a PNG.
+4. Each PNG is `frameSize.width * frames` wide and `frameSize.height` high.
 
 Check a pack with:
 
@@ -95,14 +106,35 @@ CI runs `npm run check:sprites` on every PR.
 
 ## Playback semantics
 
-- A state is **static** when `fps` is `0` or `frames` is `1`. The renderer draws
-  frame 0 once and stops its render loop (no `requestAnimationFrame` while
-  static, spec section 5).
-- Otherwise frame `n` is shown for `1 / fps` seconds. With `loop: true` the
-  animation wraps to frame 0. With `loop: false` it plays once, holds the last
-  frame, and the render loop stops.
+- A state is **static** when `frames` is `1`, or when it has no `durations`
+  and `fps` is `0`. The renderer draws frame 0 once and schedules nothing
+  (spec section 5).
+- With `durations`, frame `n` is shown for `durations[n]` milliseconds.
+  Without it, every frame is shown for `1 / fps` seconds.
+- `loop: true`: after the last frame the animation wraps to frame 0, so one
+  cycle lasts the sum of all durations. `loop: false`: it plays once and holds
+  the last frame forever; the last frame's own duration is then ignored (any
+  valid value works) and nothing more is scheduled.
 - Entering a state restarts its animation at frame 0.
-- The 12 fps cap keeps CPU use low; the default pack uses 3-8 fps.
+- Each frame change costs a few ms of CPU in the webview (docs/perf.md), so
+  the cost grows with frame changes per second, not with how long the
+  animation is. The renderer keeps exactly one timer pending, set to the next
+  frame change, and draws only when the frame changes; nothing is scheduled
+  while a frame is held for good or the window is hidden.
+- **Authoring tip:** for the calm states (`idle`, `sleeping`) hold a pose for
+  seconds and change briefly (a blink of ~150 ms, a tail swish of a few
+  ~150 ms frames). Two equal neighbouring frames are allowed but are a
+  wasted redraw; merge them into one longer duration. Keep `fps` (12 at most)
+  for short-lived, lively states.
+
+### Default pack timing
+
+| State | Frames | Timing | Frame changes per second |
+|---|---|---|---|
+| `idle` | 11 | sit 4 s, blink, sit 3.5 s, tail swish (4 x 150 ms), sit 5 s, double blink; 13.8 s cycle | 0.8 |
+| `sleeping` | 7 | breathing out / in, each held ~2.6 s; a "z" rises every 1.3 s, then a pause; 10.4 s cycle | 0.67 |
+| `thinking` | 4 | 4 fps (only during a sync) | 4 |
+| `alert` | 5 | quick hop (4 frames, ~100 ms), hold 1.4 s | 2.6 |
 
 ## Pack discovery (proposal)
 
@@ -128,7 +160,8 @@ behaviour:
 - The default pack is generated by `tools/gen-sprites.mjs`
   (`npm run gen:sprites`): a gray tabby cat, 48x48 frames. The generator also
   writes `assets/sprites/default/preview.png`, every frame scaled 6x, one row
-  per state, for eyeballing changes. Output is deterministic and committed.
+  per state, for eyeballing changes; the yellow bar under each frame shows how
+  long it is held (full width = 5 s or more). Output is deterministic and committed.
 - The reminder chime is **not** part of a sprite pack. It lives at
   `assets/sounds/chime.wav` (mono, 22.05 kHz, 16-bit PCM, under 1 s) and is
   generated by `tools/gen-chime.mjs` (`npm run gen:chime`).

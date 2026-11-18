@@ -6,10 +6,12 @@
 // corner, and the 240 x 120 bubble area above it. `#bubble` is filled by the
 // reminder bubble (2.2); its size changes are picked up automatically.
 //
-// CPU (docs/perf.md): the page is rasterised on the CPU (WebView2 runs with
-// the GPU disabled), so it draws only when the frame changes. A timeout waits
-// until the next frame is due and a single requestAnimationFrame draws it;
-// static frames and finished one-shot animations schedule nothing.
+// CPU (docs/perf.md): every drawn frame costs ~3 ms of CPU in WebView2 (GPU
+// disabled), so the page draws only when the frame changes. Exactly one
+// timeout is pending while animating: it fires when the next frame is due
+// (per-frame durations can hold a pose for seconds), draws it and schedules
+// the next. Static frames, finished one-shot animations and a hidden window
+// schedule nothing. No requestAnimationFrame loop.
 
 import { frameAt } from "./frames";
 import { catHandlers } from "./hooks";
@@ -50,19 +52,17 @@ let appearance: Appearance = {
 // ----- Rendering -----
 
 let timer: number | undefined;
-let frameRequest: number | undefined;
 let drawnFrame = -1;
 
 function stopLoop(): void {
   if (timer !== undefined) clearTimeout(timer);
-  if (frameRequest !== undefined) cancelAnimationFrame(frameRequest);
-  timer = frameRequest = undefined;
+  timer = undefined;
 }
 
-/** Draws the current frame if it changed and schedules the next one. */
+/** Draws the current frame if it changed and schedules the next change. */
 function tick(): void {
-  frameRequest = undefined;
-  if (!pack) return;
+  timer = undefined;
+  if (!pack || document.hidden) return;
   const sprite = pack.states[state];
   const { index, nextInMs } = frameAt(sprite, performance.now() - stateStart);
   if (index !== drawnFrame) {
@@ -72,19 +72,14 @@ function tick(): void {
     ctx.drawImage(sprite.image, index * w, 0, w, h, 0, 0, canvas.width, canvas.height);
     drawnFrame = index;
   }
-  if (nextInMs !== null && !document.hidden) {
-    timer = window.setTimeout(() => {
-      timer = undefined;
-      frameRequest = requestAnimationFrame(tick);
-    }, Math.max(1, Math.ceil(nextInMs)));
-  }
+  if (nextInMs !== null) timer = window.setTimeout(tick, Math.max(1, Math.ceil(nextInMs)));
 }
 
 /** (Re)starts the loop, redrawing the current frame. */
 function restart(): void {
   stopLoop();
   drawnFrame = -1;
-  if (!document.hidden) frameRequest = requestAnimationFrame(tick);
+  tick();
 }
 
 function setState(next: BuddyState): void {
