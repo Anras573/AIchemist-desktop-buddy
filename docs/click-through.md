@@ -583,3 +583,73 @@ both reverted).
    signing in the row shows "signed in as <your sign-in name>", also after
    quitting and relaunching.
 9. [ ] Light and dark mode both render the accounts section legibly.
+
+## Reminder bubble, scheduler wiring and chime (task 2.2)
+
+Code: `src-tauri/src/reminders/` (service, sink, ledger writer, commands),
+`src/buddy/bubble.ts`, `src/buddy/bubble-format.ts` (pure, tested),
+`src/buddy/chime.ts`. Hooks in 2.3's modules: `upcoming::tasks_changed`
+reloads the tasks into the scheduler, `snooze::snooze_all_for` snoozes
+through it.
+
+- **Startup.** The scheduler is built from the persisted ledger (database
+  from `app_storage`) and fed the cached events of the next 7 days, all
+  tasks, the settings and the pause flag. Reminders already due fire right
+  away.
+- **Bubble.** `reminder-shown` renders the `BubbleView` in `#bubble` (title
+  cut with an ellipsis, start/due time and "in N min" / "Overdue",
+  location for a single meeting, "+N" badge, "While you were away" for a
+  replay batch; several items scroll inside the 240 x 120 area).
+  `reminder-cleared` hides it (`hidden` attribute, so the hit region follows).
+  On load the page calls `get_current_bubble`. While shown, the relative time
+  refreshes once a minute (one timeout, cleared when hidden).
+- **Actions.** Dismiss, Snooze (first snooze option; a "▾" button shows the
+  other configured durations) and, on task items, Mark done
+  (`set_task_done`, the same command as the popover's checkbox). The cat
+  leaves `alert` when the bubble is cleared, not
+  when the button is pressed, so a queued bubble keeps it alert.
+- **Chime.** Played once per new bubble when "sound" is on. Rust calls
+  `window.__aichemistPlayChime()` through `eval`; one `Audio` element plays
+  the bundled `chime.wav` (served as a file, allowed by `default-src 'self'`).
+- **Pause.** Tray toggle and `set_paused` both go through `pause::set_paused`,
+  which forwards to the scheduler: the bubble is taken down; on resume the
+  missed reminders come back as one replay bubble.
+- **Persistence.** Ledger changes are saved by a worker thread (bursts
+  coalesced) and flushed on exit.
+
+### Verified on Windows (2026-11-18, release build, UI Automation)
+
+A temporary debug hook (removed before commit) created a task due shortly
+after launch and toggled pause through `pause::set_paused` (the tray path).
+Buttons were pressed through UI Automation (`InvokePattern`).
+
+- [x] At the due time the cat switches to `alert` and the bubble shows the
+  title with an ellipsis, "Due now", Mark done, Dismiss and "Snooze 5 min".
+  WebView2 started its audio service process when the chime played.
+- [x] Snooze: the bubble disappears and the cat returns to idle; 5 minutes
+  later the reminder fires again ("Overdue · due 11:17").
+- [x] Mark done: the bubble disappears, the cat returns to idle; after a
+  restart the task does not fire again.
+- [x] Paused before the due time: nothing shows; on unpause the reminder
+  comes back with "While you were away".
+- [x] Dismiss, then restart: no bubble (the dismissal was persisted).
+- [x] Memory: see `docs/perf.md` (59.5 MB with the bubble, 53.3 MB idle).
+
+### Manual test checklist for macOS (task 2.2)
+
+Create tasks with the popover's add-task form (click the cat).
+
+1. [ ] Create a task due in 2 minutes. At the due time the cat goes to
+   `alert`, the chime plays once and the bubble appears above the cat, inside
+   the window, with a long title cut by "...".
+2. [ ] Click "Snooze 5 min": the bubble goes away and the cat returns to
+   idle; it fires again 5 minutes later. With several snooze durations set in
+   Settings, "▾" shows the others.
+3. [ ] Click "Mark done": the bubble goes away and the task shows as done.
+4. [ ] Menu bar > Pause reminders, let a task fall due, then unpause: one
+   bubble with "While you were away".
+5. [ ] Click "Dismiss", quit (menu bar > Quit) and relaunch: the reminder
+   does not fire again.
+6. [ ] Turn sound off in Settings: the next reminder shows without the chime.
+7. [ ] Clicks next to the bubble (inside the window, outside the bubble)
+   reach the app underneath; the bubble buttons work.

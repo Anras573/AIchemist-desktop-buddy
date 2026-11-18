@@ -35,9 +35,123 @@ body {
 #bubble {
   position: absolute;
   bottom: calc(var(--pad) + var(--cat-height));
-  max-width: 240px;
+  width: 240px;
   max-height: 120px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 2px solid #3a3a3a;
+  border-radius: 10px;
+  background: #fffdf5;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+#bubble.busy button {
+  cursor: progress;
+}
+
+.bubble-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6a5a2a;
+}
+
+.bubble-replay {
+  flex: 1;
+  font-style: italic;
+}
+
+.bubble-badge {
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: #d9480f;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Scrolls when a replay batch does not fit; the actions stay visible. */
+.bubble-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.bubble-item + .bubble-item {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid #e6dfc8;
+}
+
+.bubble-item-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bubble-title,
+.bubble-where {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bubble-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.bubble-detail,
+.bubble-where {
+  color: #555;
+  font-size: 11px;
+}
+
+.bubble-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.bubble-actions[hidden] {
+  display: none;
+}
+
+.bubble-btn {
+  flex: 1;
+  padding: 2px 4px;
+  border: 1px solid #8a8a8a;
+  border-radius: 5px;
+  background: #f2f2f2;
+  font: inherit;
+  font-size: 11px;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bubble-btn:hover {
+  background: #e4e4e4;
+}
+
+.bubble-btn.narrow {
+  flex: none;
+  width: 22px;
+}
+
+.bubble-btn.small {
+  flex: none;
+  padding: 0 4px;
+  font-size: 10px;
 }
 
 #bubble[hidden] {

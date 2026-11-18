@@ -4,7 +4,7 @@
 // Layout (src-tauri/src/placement.rs): 8 px padding on every side, the cat
 // (48 x 48 frame at `catScale`) at the bottom, on the side of the configured
 // corner, and the 240 x 120 bubble area above it. `#bubble` is filled by the
-// reminder bubble (2.2); its size changes are picked up automatically.
+// reminder bubble (bubble.ts); its size changes are picked up automatically.
 //
 // CPU (docs/perf.md): every drawn frame costs ~3 ms of CPU in WebView2 (GPU
 // disabled), so the page draws only when the frame changes. Exactly one
@@ -13,6 +13,8 @@
 // the next. Static frames, finished one-shot animations and a hidden window
 // schedule nothing. No requestAnimationFrame loop.
 
+import { initBubble } from "./bubble";
+import "./chime";
 import { frameAt } from "./frames";
 import { catHandlers, onCatClick, onCatContextMenu } from "./hooks";
 import {
@@ -191,7 +193,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// The bubble (2.2) appearing, disappearing or resizing.
+// The bubble or the popover appearing, disappearing or resizing.
 const observer = new ResizeObserver(reportHitRegions);
 observer.observe(bubble);
 observer.observe(popover.element);
@@ -218,3 +220,4 @@ async function start(): Promise<void> {
 }
 
 start().catch((err: unknown) => console.error("buddy start failed", err));
+initBubble(bubble).catch((err: unknown) => console.error("bubble start failed", err));

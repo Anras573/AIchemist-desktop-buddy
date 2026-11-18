@@ -7,9 +7,9 @@
 //! pool ([`app_storage::blocking`]): Tauri runs *sync* commands on the main
 //! thread, which must never wait on SQLite.
 //!
-//! Every task mutation goes through [`tasks_changed`], which emits
-//! `upcoming-changed`. Hook for 2.2: tell the scheduler there as well, so a
-//! new or edited due time re-arms its reminder.
+//! Every task mutation goes through [`tasks_changed`], which reloads the
+//! tasks into the scheduler (so a new or edited due time re-arms its
+//! reminder and a done task leaves the bubble) and emits `upcoming-changed`.
 
 use chrono::{DateTime, Duration, Utc};
 use tauri::{AppHandle, Emitter, Runtime};
@@ -88,8 +88,12 @@ pub fn list_upcoming_from(
     ))
 }
 
-/// Tasks changed: the popover refetches. 2.2: notify the scheduler here.
+/// Tasks changed: the scheduler reloads them from storage, the popover
+/// refetches. Reads storage briefly: call off the main thread.
 pub fn tasks_changed<R: Runtime>(app: &AppHandle<R>) {
+    if let Err(e) = crate::reminders::tasks_changed(app) {
+        log::warn!("the scheduler did not get the task change: {e}");
+    }
     let _ = app.emit_to(BUDDY_WINDOW_LABEL, event::UPCOMING_CHANGED, ());
 }
 
@@ -99,9 +103,14 @@ async fn mutate<R: Runtime, T: Send + 'static>(
     f: impl FnOnce(&Storage) -> Result<T> + Send + 'static,
 ) -> Result<T> {
     let storage = app_storage::storage(app)?;
-    let out = blocking(move || f(&storage)).await?;
-    tasks_changed(app);
-    Ok(out)
+    let app = app.clone();
+    // `tasks_changed` reads storage too, so it runs on the blocking pool.
+    blocking(move || {
+        let out = f(&storage)?;
+        tasks_changed(&app);
+        Ok(out)
+    })
+    .await
 }
 
 /// IPC `list_upcoming`.

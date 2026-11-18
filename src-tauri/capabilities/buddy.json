@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "buddy",
-  "description": "Permissions for the buddy window. Grant only the IPC commands the buddy needs (spec section 9). core:event:allow-listen lets the page listen to buddy-state-changed, appearance-changed, open-popover and upcoming-changed; it never unlistens or emits.",
+  "description": "Permissions for the buddy window. Grant only the IPC commands the buddy needs (spec section 9). core:event:allow-listen lets the page listen to buddy-state-changed, appearance-changed, open-popover, upcoming-changed, reminder-shown, reminder-cleared and paused-changed; it never unlistens or emits.",
   "windows": ["buddy"],
   "permissions": [
     "allow-set-hit-regions",
@@ -18,6 +18,11 @@
     "allow-show-cat-menu",
     "allow-open-settings",
     "allow-set-popover-open",
+    "allow-get-current-bubble",
+    "allow-dismiss-bubble",
+    "allow-snooze-bubble",
+    "allow-get-paused",
+    "allow-set-paused",
     "core:event:allow-listen"
   ]
 }

@@ -65,6 +65,33 @@ export type IpcError =
   | { kind: "validation"; errors: { field: string; message: string }[] }
   | { kind: string; message: string };
 
+/** `ReminderKey` (src-tauri/src/domain/reminder.rs). */
+export type ReminderKey =
+  | {
+      kind: "meeting";
+      event: { accountId: string; calendarId: string; eventId: string };
+      leadMinutes: number;
+    }
+  | { kind: "task"; taskId: string };
+
+/** `BubbleItem` (src-tauri/src/domain/ipc.rs). `at` is RFC 3339 UTC. */
+export interface BubbleItem {
+  key: ReminderKey;
+  title: string;
+  at: string;
+  allDay: boolean;
+  location: string | null;
+}
+
+/** `BubbleView` (src-tauri/src/domain/ipc.rs). */
+export interface BubbleView {
+  id: number;
+  items: BubbleItem[];
+  queued: number;
+  replay: boolean;
+  snoozeOptionsMinutes: number[];
+}
+
 interface TauriEvent<T> {
   event: string;
   id: number;
