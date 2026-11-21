@@ -439,9 +439,10 @@ Notes:
 
 ### CI runners
 
-`.github/workflows/perf.yml` (this PR) on the branch of this PR, which is
-main plus measurement-only changes. Default settings (no accounts, no
-tasks), 3 workflow runs.
+`.github/workflows/perf.yml` (this PR) on the branch of this PR, which was
+main at `63cc5f3` plus measurement-only changes. Default settings (no
+accounts, no tasks), 3 workflow runs. The PR's own perf check re-runs it
+on the branch rebased onto later main.
 
 | Platform | State | Run 1 | Run 2 | Run 3 | Mean | Verdict |
 |---|---|---|---|---|---|---|
@@ -488,8 +489,10 @@ cheapest first:
 
 ### Timers and background threads (spec 10: "one scheduler timer, no busy loops or fixed-interval polling on the UI side")
 
-Audit of `src-tauri/src` and `src/` on main at `63cc5f3`. No busy loops and
-no `setInterval` or `requestAnimationFrame` loop anywhere.
+Audit of `src-tauri/src` and `src/` on main at `63cc5f3`, re-checked after
+tasks 4.3 and 4.4 merged (`dd08824`: no new threads or timers; the chime is
+now an event instead of an evaluated script). No busy loops and no
+`setInterval` or `requestAnimationFrame` loop anywhere.
 
 Rust threads and timers:
 
