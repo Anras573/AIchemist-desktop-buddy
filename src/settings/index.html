@@ -98,7 +98,11 @@
         <p class="error" id="accounts-error"></p>
         <ul id="account-list" class="accounts"></ul>
         <p class="hint" id="no-accounts" hidden>No accounts yet. Add one to get meeting reminders.</p>
-        <button type="button" id="add-open">Add account…</button>
+        <div class="actions">
+          <button type="button" id="add-open">Add account…</button>
+          <button type="button" id="sync-now" hidden>Sync now</button>
+        </div>
+        <p class="message" id="sync-message" role="status"></p>
 
         <div id="add-panel" class="panel" hidden>
           <p class="label">Account type</p>

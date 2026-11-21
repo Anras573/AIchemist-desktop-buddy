@@ -116,6 +116,31 @@ function render(): void {
   $("accounts-error").textContent = loadError;
   $("no-accounts").hidden = accounts.length > 0 || loadError !== "";
   $("account-list").replaceChildren(...accounts.map(renderRow));
+  renderSyncNow();
+}
+
+let syncRequestError = "";
+
+/** "Sync now" syncs every account; each row shows its own progress. */
+function renderSyncNow(): void {
+  const syncing = accounts.some((a) => a.syncState === "syncing");
+  const b = $<HTMLButtonElement>("sync-now");
+  b.hidden = accounts.length === 0;
+  b.disabled = syncing;
+  const message = $("sync-message");
+  message.textContent = syncRequestError || (syncing ? "Syncing…" : "");
+  message.className = `message ${syncRequestError ? "failed" : ""}`;
+}
+
+async function syncNow(): Promise<void> {
+  try {
+    await invoke("sync_now");
+    syncRequestError = "";
+  } catch (err) {
+    syncRequestError = `Cannot start a sync: ${describeAccountError(err)}`;
+  }
+  // Progress arrives as `accounts-changed`.
+  renderSyncNow();
 }
 
 function renderRow(status: AccountStatus): HTMLLIElement {
@@ -428,6 +453,7 @@ export function initAccounts(): void {
     }),
   );
   $("add-open").addEventListener("click", () => setAddOpen(true));
+  $("sync-now").addEventListener("click", () => void syncNow());
   $("add-cancel").addEventListener("click", () => setAddOpen(false));
   const form = $<HTMLFormElement>("accounts");
   form.addEventListener("submit", (e) => {

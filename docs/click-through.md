@@ -716,3 +716,62 @@ Settings written before each launch; Run key and log read after 6 to 12 s.
    `https://github.com/Anras573/AIchemist-desktop-buddy/releases/tag/v9.9.9`.
    With `v0.1.0` no item appears.
 6. [ ] Turn the check off while the item shows: the item disappears.
+
+## Calendar sync wiring (task 3.6)
+
+`src-tauri/src/calendar_sync/`: the sync engine (`src-tauri/src/sync/`)
+runs on the `calendar-sync` thread with the shared Graph + CalDAV provider
+factory, writes the SQLite event cache and `sync_state`, and reports to the
+cat (`thinking`), the scheduler, the account rows (`accounts-changed`), the
+tray error line and the popover (`upcoming-changed`). Settings changes
+(accounts, included calendars, interval) apply live. A provider that panics
+becomes an `internal` error for its account; the thread keeps running.
+Settings > Calendar accounts has a "Sync now" button.
+
+Resume from sleep: tao reports `Resumed` only on mobile, so desktop builds
+rely on the worker's wall-clock-jump detection (it wakes at least once a
+minute). If the monotonic clock also counts sleep, no jump is seen and the
+overdue regular sync runs within a minute of wake-up instead.
+
+### Verified on Windows (2026-11-18, release build, temporary identifier `...dev36`)
+
+A temporary setup hook (removed) added a CalDAV account with an included
+calendar and seeded one cached event 11.5 minutes ahead; the settings page
+and the buddy state were read over the WebView2 DevTools port, the tray
+tooltip through UI Automation.
+
+- [x] Account at `https://unreachable.invalid/`: the row shows "Problem",
+  "Sync failed", "Network error: connection failed ...". Log: retries at
+  +30 s, +1 min, +2 min (`sync failed: ...; retrying at ...`).
+- [x] Tray tooltip (overflow) reads "Calendar sync problem: Unreachable";
+  after unticking the account's calendars it is gone; ticking again brings
+  it back (and triggers an immediate sync: settings apply live).
+- [x] With every sync failing, the cached meeting's 10-minute reminder fired
+  on time (bubble "Offline reminder test", cat in `alert`).
+- [x] Account at a blackholed address (`https://10.255.255.1/`, 30 s
+  timeout): during a sync the row shows "Syncing", the section "Syncing…",
+  and `get_buddy_state` returns `thinking`; afterwards `idle`.
+- [x] "Sync now": the log shows "sync requested", the row goes to
+  "Syncing" and the cat to `thinking`.
+- [x] Memory and CPU: see `docs/perf.md` (51.4 MB, 0.28 % of one core).
+- [ ] Not tested: a real calendar server (the owner's accounts were not
+  available), and a real sleep/resume cycle.
+
+### Manual test checklist for macOS (task 3.6)
+
+1. [ ] Add a CalDAV account at `https://unreachable.invalid/` (any user and
+   password) and include a calendar: the row shows a network error and the
+   menu bar menu shows "Calendar sync problem: <name>" at the top. Removing
+   the account clears it.
+2. [ ] With a real account: the cat shows `thinking` briefly at start and
+   every sync interval; events appear in the popover; meeting reminders
+   fire.
+3. [ ] Turn Wi-Fi off and wait for a meeting reminder: it still fires from
+   the cache; the row shows a network error and recovers after Wi-Fi is
+   back (within the backoff, at most the sync interval).
+4. [ ] Settings > Calendar accounts > "Sync now": the row goes to "Syncing"
+   and then shows the new "last synced" time.
+5. [ ] Close the lid for a few minutes and open it: a sync runs within about
+   a minute (log `aichemist-buddy.log`).
+6. [ ] Change the sync interval in Settings: the next sync follows the new
+   interval without a restart.

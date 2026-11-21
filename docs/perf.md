@@ -320,6 +320,24 @@ itself costs less than the run-to-run noise. Idle stays at the M2 baseline
 (52-54 MB): the scheduler thread and the ledger writer thread sleep on
 condition variables. **Under 80 MB in both states.**
 
+### Calendar sync wiring (task 3.6), Windows, local desktop
+
+2026-11-18, same machine, release build, temporary identifier `...dev36`,
+one CalDAV account pointing at an unreachable host (`https://*.invalid/`),
+so the sync thread fails and retries with backoff throughout. Fresh launch
+per run, 30 s settle.
+
+| Metric | Runs | Mean |
+|---|---|---|
+| Private WS (`tools/measure-memory.ps1`, 5 processes), MB | 51.4 / 51.5 / 51.4 | **51.4** |
+| Private Bytes, MB | 76.8 / 77.5 / 77.4 | 77.2 |
+| CPU per 60 s (`tools/measure-cpu.ps1`), ms | 187.8 / 156.6 / 157.4 | **167 (0.28 % of one core, 0.01 % of the machine)** |
+
+The app process itself used ~24 ms per minute (the sync thread sleeps on a
+condition variable, waking at most once a minute or at the next retry).
+Unchanged from the 2.2 idle numbers within noise. **Under 80 MB, CPU under
+1 % of one core.**
+
 ### CI runners
 
 | Date | Runner | Build | Config | Processes | Result |
@@ -349,6 +367,8 @@ process was attributed to the app at idle.
   under the 1 % target; memory unchanged (53-56 MB private WS).
 - Reminders (2026-11-18, task 2.2): 53 MB private working set idle, 59.5 MB
   with a bubble showing after the chime (audio service process added).
+- Calendar sync (2026-11-18, task 3.6): 51.4 MB private working set idle
+  with a failing account retrying; CPU 0.28 % of one core.
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 

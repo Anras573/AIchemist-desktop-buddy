@@ -1,7 +1,7 @@
 //! Engine and worker tests against the fake provider and a fake clock.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration as StdDuration;
@@ -562,6 +562,112 @@ fn sync_now_and_resume_trigger_a_full_sync() {
     });
     assert!(out.full_sync);
     assert_eq!(a.fetch_count(), 3);
+}
+
+// ---------------------------------------------------------------------------
+// Panic safety
+// ---------------------------------------------------------------------------
+
+/// A provider whose `fetch_events` panics while `panics` is set.
+struct Panicky {
+    inner: Arc<FakeCalendarProvider>,
+    panics: AtomicBool,
+}
+
+impl CalendarProvider for Panicky {
+    fn account_id(&self) -> &AccountId {
+        self.inner.account_id()
+    }
+    fn list_calendars(&self) -> Result<Vec<CalendarInfo>> {
+        self.inner.list_calendars()
+    }
+    fn fetch_events(
+        &self,
+        calendar_ids: &[CalendarId],
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<Event>> {
+        if self.panics.load(Ordering::SeqCst) {
+            panic!("provider bug (expected in this test)");
+        }
+        self.inner.fetch_events(calendar_ids, from, to)
+    }
+    fn test_connection(&self) -> Result<()> {
+        self.inner.test_connection()
+    }
+}
+
+#[test]
+fn a_panicking_provider_fails_only_its_account() {
+    let bad = Arc::new(Panicky {
+        inner: fake(
+            "a",
+            vec![event("a", "c", "a1", "A", t0() + Duration::hours(1))],
+        ),
+        panics: AtomicBool::new(true),
+    });
+    let b = fake(
+        "b",
+        vec![event("b", "c", "b1", "B", t0() + Duration::hours(2))],
+    );
+    let s = settings(vec![account("a", &["c"]), account("b", &["c"])], 10);
+    let mut f = fixture(&s, vec![bad.clone(), b]);
+    f.sink.seed(
+        &id("a"),
+        vec![event("a", "c", "old", "Old", t0() + Duration::hours(3))],
+    );
+
+    tick(&mut f);
+
+    let updates = f.recorder.take();
+    assert_eq!(
+        status(&updates, "a"),
+        [SyncState::Syncing, SyncState::Error]
+    );
+    assert_eq!(status(&updates, "b"), [SyncState::Syncing, SyncState::Ok]);
+    assert_eq!(updates.last(), Some(&SyncUpdate::Ended));
+    let a = f.engine.statuses().lock().unwrap()[0].clone();
+    assert!(matches!(a.last_error, Some(Error::Internal { .. })));
+    // Internal errors wait for the next full sync, no backoff retry.
+    assert_eq!(a.next_retry_at, None);
+    // The failed account keeps its cache; the other one synced.
+    assert_eq!(f.sink.events_of(&id("a"))[0].id.as_str(), "old");
+    assert_eq!(merged(&updates).unwrap(), ["b1", "old"]);
+    assert!(f.sink.last_outcome(&id("a")).unwrap().result.is_err());
+
+    // Once the provider behaves, the next full sync recovers the account
+    // with a fresh provider from the factory.
+    bad.panics.store(false, Ordering::SeqCst);
+    f.clock.advance(Duration::minutes(10));
+    tick(&mut f);
+    assert_eq!(f.factory.created(), 3);
+    assert_eq!(f.sink.events_of(&id("a"))[0].id.as_str(), "a1");
+}
+
+#[test]
+fn a_panicking_provider_does_not_stop_the_worker() {
+    let bad = Arc::new(Panicky {
+        inner: fake("a", Vec::new()),
+        panics: AtomicBool::new(true),
+    });
+    let s = settings(vec![account("a", &["c"])], 10);
+    let (recorder, rx) = Recorder::channel();
+    let engine = SyncEngine::new(
+        &s,
+        Factory::with(vec![bad.clone()]),
+        Arc::new(InMemorySink::new()),
+        recorder,
+        Arc::new(FakeClock::new(t0())),
+        SyncConfig::default(),
+    );
+    let worker = SyncWorker::spawn(engine).unwrap();
+    wait_for(&rx, &SyncUpdate::Ended);
+    assert!(worker.handle().has_errors());
+
+    bad.panics.store(false, Ordering::SeqCst);
+    worker.handle().sync_now();
+    wait_for(&rx, &SyncUpdate::Ended);
+    assert!(!worker.handle().has_errors());
 }
 
 // ---------------------------------------------------------------------------

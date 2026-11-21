@@ -1,5 +1,6 @@
 //! Single-threaded sync logic, driven by [`SyncEngine::tick`].
 
+use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Duration, Utc};
@@ -254,7 +255,12 @@ impl SyncEngine {
         self.accounts[i].status.sync_state = SyncState::Syncing;
         self.emit_status(i);
 
-        let result = self.fetch_and_store(i, now);
+        // A panicking provider (or factory) must not take the sync thread
+        // down: it becomes an internal error of this account. The provider
+        // is dropped below (internal errors are not retryable), so the next
+        // full sync starts from a fresh one.
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| self.fetch_and_store(i, now)))
+            .unwrap_or_else(|_| Err(Error::internal("the calendar provider crashed")));
         let finished = self.clock.now();
         let entry = &mut self.accounts[i];
         match &result {
