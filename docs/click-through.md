@@ -608,8 +608,9 @@ through it.
   (`set_task_done`, the same command as the popover's checkbox). The cat
   leaves `alert` when the bubble is cleared, not
   when the button is pressed, so a queued bubble keeps it alert.
-- **Chime.** Played once per new bubble when "sound" is on. Rust calls
-  `window.__aichemistPlayChime()` through `eval`; one `Audio` element plays
+- **Chime.** Played once per new bubble when "sound" is on. Rust emits the
+  app-internal `play-chime` event to the buddy window (until task 4.4 it
+  evaluated `window.__aichemistPlayChime()`); one `Audio` element plays
   the bundled `chime.wav` (served as a file, allowed by `default-src 'self'`).
 - **Pause.** Tray toggle and `set_paused` both go through `pause::set_paused`,
   which forwards to the scheduler: the bubble is taken down; on resume the

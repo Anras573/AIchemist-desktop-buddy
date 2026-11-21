@@ -31,13 +31,26 @@
 //! discovered calendar home's origin, so credentials only go to that origin
 //! (an id cannot name another host).
 //!
+//! # Where credentials go
+//!
+//! Every request carries Basic auth, so `client::Client::send` sends one
+//! only to an `https` URL on the configured server's site: the configured
+//! host itself, its subdomains, or (for a host with three or more labels)
+//! the other hosts under its parent domain. That covers iCloud, whose
+//! `caldav.icloud.com` redirects and points discovery to a partition host
+//! such as `p42-caldav.icloud.com`, while a redirect or `href` to an
+//! unrelated host fails with [`Error::Protocol`] before anything is sent
+//! there (task 4.4). Without a public-suffix list the parent-domain rule is
+//! a heuristic: a server configured as `example.co.uk` would also accept
+//! `*.co.uk`.
+//!
 //! # Errors
 //!
 //! | Cause | Error |
 //! |---|---|
 //! | DNS, connect, TLS, timeout; HTTP 408, 429, 5xx | [`Error::Network`] (retried) |
 //! | HTTP 401, 403; no password in the keychain | [`Error::Auth`] |
-//! | Malformed XML, unexpected `REPORT` status, redirect to non-https, redirect loop | [`Error::Protocol`] |
+//! | Malformed XML, unexpected `REPORT` status, redirect or href to non-https or to another site, redirect loop | [`Error::Protocol`] |
 //! | No WebDAV resource at the URL (`PROPFIND` answered with anything but 207) | [`Error::NotFound`] |
 //! | Unusable server URL, bad calendar id, non-CalDAV account | [`Error::InvalidInput`] |
 //!
@@ -125,8 +138,8 @@ impl CalDavProvider {
         let username = username.into();
         Ok(Self {
             account_id,
+            client: Client::new(transport, &server_url, username.clone(), password),
             server_url,
-            client: Client::new(transport, username.clone(), password),
             username,
             clock,
             discovery: Mutex::new(None),

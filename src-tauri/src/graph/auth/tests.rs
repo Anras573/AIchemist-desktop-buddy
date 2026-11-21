@@ -649,3 +649,36 @@ fn live_sign_in() {
     assert!(!second.expose().is_empty());
     println!("refresh OK");
 }
+
+// ---------------------------------------------------------------------------
+// Security review (task 4.4)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn browser_opener_refuses_look_alike_hosts() {
+    // Rejected before any process starts, so nothing is opened here.
+    for url in [
+        "https://login.microsoftonline.com.evil.example/common/oauth2/v2.0/authorize",
+        "https://login.microsoftonline.com@evil.example/",
+        "https://login.microsoftonline.com",
+        "http://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "file:///C:/Windows/System32/calc.exe",
+    ] {
+        assert!(SystemBrowser.open(url).is_err(), "{url} must be refused");
+    }
+}
+
+#[test]
+fn malformed_token_response_error_does_not_quote_the_body() {
+    // A wrong type makes serde_json quote the value in its own message.
+    let body = r#"{"access_token": "secret-access-token", "expires_in": "3600",
+                   "token_type": 123456789, "refresh_token": "secret-refresh"}"#;
+    let err = parse_token_response(&HttpResponse::new(200, body.as_bytes()))
+        .err()
+        .expect("a wrong type is rejected");
+    let text = err.to_string();
+    assert!(text.contains("malformed token response"), "{text}");
+    for secret in ["123456789", "secret-access-token", "secret-refresh"] {
+        assert!(!text.contains(secret), "{text}");
+    }
+}

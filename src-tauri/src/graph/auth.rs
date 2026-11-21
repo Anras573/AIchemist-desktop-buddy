@@ -144,7 +144,9 @@ pub struct SystemBrowser;
 
 impl BrowserOpener for SystemBrowser {
     fn open(&self, url: &str) -> Result<()> {
-        if !url.starts_with(AUTHORITY_HOST) {
+        // The trailing `/` matters: without it `https://login.microsoftonline.com.evil.example`
+        // or `...com@evil.example` would pass.
+        if !url.starts_with(&format!("{AUTHORITY_HOST}/")) {
             return Err(Error::internal(
                 "refusing to open a non-Microsoft sign-in URL",
             ));
@@ -544,9 +546,16 @@ fn number_or_string<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Resu
 fn parse_token_response(response: &HttpResponse) -> Result<TokenResponse> {
     let status = response.status;
     if (200..300).contains(&status) {
-        // serde_json errors name the position, never the input text.
-        let tokens: TokenResponse = serde_json::from_slice(&response.body)
-            .map_err(|e| Error::protocol(format!("malformed token response: {e}")))?;
+        // Only the error class and position: serde_json's message can quote
+        // the offending value (e.g. `invalid type: string "..."`).
+        let tokens: TokenResponse = serde_json::from_slice(&response.body).map_err(|e| {
+            Error::protocol(format!(
+                "malformed token response ({:?} error at line {}, column {})",
+                e.classify(),
+                e.line(),
+                e.column()
+            ))
+        })?;
         if tokens
             .token_type
             .as_deref()

@@ -1,7 +1,7 @@
 //! "Snooze all" (spec 4.3): snooze the current bubble and everything queued
 //! behind it.
 //!
-//! The `snooze_all` command and the cat menu's "Snooze all" both go through
+//! The cat menu's "Snooze all" (and the unregistered `snooze_all` command) go through
 //! [`snooze_all_for`], which hands the duration to the scheduler
 //! ([`crate::reminders::snooze_all`]).
 
@@ -33,6 +33,8 @@ pub fn default_minutes(reminders: &ReminderSettings) -> u32 {
 
 /// IPC `snooze_all`. Async, so the scheduler call never runs on the main
 /// thread.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub async fn snooze_all<R: Runtime>(app: AppHandle<R>, request: SnoozeAllRequest) -> Result<()> {
     snooze_all_for(&app, request.minutes)

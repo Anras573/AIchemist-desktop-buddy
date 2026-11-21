@@ -1,5 +1,5 @@
 //! The native right-click menu on the cat (spec 4.3) and the
-//! `show_cat_menu` / `open_settings` commands.
+//! `show_cat_menu` command (`open_settings` exists but is not registered).
 //!
 //! Menu: Upcoming, Add task, Snooze all, Settings, Quit. The buddy page
 //! calls `show_cat_menu` on right-click; the menu pops up at the cursor.
@@ -87,6 +87,8 @@ pub fn show_cat_menu<R: Runtime>(window: WebviewWindow<R>) -> Result<(), String>
 
 /// IPC `open_settings`: opens (or focuses) the settings window. Async:
 /// creating a window from a sync command can deadlock on Windows.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub async fn open_settings<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     crate::tray::open_settings(&app);
@@ -110,14 +112,10 @@ mod tests {
         let perm = |name: &str| format!("allow-{}", name.replace('_', "-"));
         for name in [
             command::LIST_UPCOMING,
-            command::LIST_TASKS,
             command::CREATE_TASK,
-            command::UPDATE_TASK,
             command::SET_TASK_DONE,
             command::DELETE_TASK,
-            command::SNOOZE_ALL,
             command::SHOW_CAT_MENU,
-            command::OPEN_SETTINGS,
         ] {
             let spec = COMMANDS.iter().find(|c| c.name == name).unwrap();
             assert_eq!(spec.windows, &[Window::Buddy]);

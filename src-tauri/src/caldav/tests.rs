@@ -512,6 +512,24 @@ fn redirect_to_http_is_refused_without_sending_credentials() {
 }
 
 #[test]
+fn redirect_to_another_site_is_refused_without_sending_credentials() {
+    let mock = Mock::new();
+    mock.on(
+        "PROPFIND",
+        "https://cloud.example.com/.well-known/caldav",
+        redirect(301, "https://attacker.example.net/remote.php/dav/"),
+    );
+    let p = provider(NEXTCLOUD, "testuser", &mock);
+    let err = p.test_connection().unwrap_err();
+    assert!(matches!(err, Error::Protocol { .. }), "{err:?}");
+    assert_eq!(
+        mock.urls(),
+        ["https://cloud.example.com/.well-known/caldav"],
+        "nothing may be sent to the other host"
+    );
+}
+
+#[test]
 fn redirect_loops_are_cut_off() {
     let mock = Mock::new();
     mock.on(

@@ -24,6 +24,9 @@ pub(crate) struct Discovery {
 /// Talks WebDAV to one server with one set of credentials.
 pub(crate) struct Client {
     transport: Arc<dyn Transport>,
+    /// The configured server URL: credentials go only to its site
+    /// ([`same_site`]).
+    server: Url,
     username: String,
     password: SecretString,
 }
@@ -31,18 +34,21 @@ pub(crate) struct Client {
 impl Client {
     pub(crate) fn new(
         transport: Arc<dyn Transport>,
+        server: &Url,
         username: String,
         password: SecretString,
     ) -> Self {
         Self {
             transport,
+            server: server.clone(),
             username,
             password,
         }
     }
 
-    /// Sends a request, following redirects to `https` targets only, and
-    /// maps authentication and server failures to errors. Returns the final
+    /// Sends a request, following redirects to `https` targets on the
+    /// configured server's site only ([`same_site`]), and maps
+    /// authentication and server failures to errors. Returns the final
     /// URL (the base for relative hrefs) and the response, whose status is
     /// neither 3xx, 401/403, 408/429 nor 5xx.
     pub(crate) fn send(
@@ -59,6 +65,13 @@ impl Client {
             if url.scheme() != "https" {
                 return Err(Error::protocol(
                     "the server redirected to a non-https URL; refusing to follow",
+                ));
+            }
+            // The URL may come from a redirect or a server-sent href:
+            // credentials never leave the configured server's site.
+            if !same_site(&self.server, &url) {
+                return Err(Error::protocol(
+                    "the server pointed to another site; refusing to send the credentials there",
                 ));
             }
             let authorization = basic_auth(&self.username, &self.password);
@@ -177,6 +190,31 @@ impl Client {
     }
 }
 
+/// Whether `target` is on the site of the configured server URL: the same
+/// host, a subdomain of it, or, when the configured host is a domain name
+/// with at least three labels, any host under its parent domain (iCloud:
+/// `caldav.icloud.com` and `p42-caldav.icloud.com`). IP addresses must match
+/// exactly. Ports are not compared (both are `https`).
+pub(crate) fn same_site(configured: &Url, target: &Url) -> bool {
+    use url::Host;
+    match (configured.host(), target.host()) {
+        (Some(Host::Domain(home)), Some(Host::Domain(other))) => {
+            let home = home.trim_end_matches('.').to_ascii_lowercase();
+            let other = other.trim_end_matches('.').to_ascii_lowercase();
+            let under = |site: &str| other == site || other.ends_with(&format!(".{site}"));
+            if under(&home) {
+                return true;
+            }
+            match home.split_once('.') {
+                Some((_, parent)) if parent.contains('.') => under(parent),
+                _ => false,
+            }
+        }
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
 /// Resolves a server-sent href against the URL of the response it came in.
 pub(crate) fn join(base: &Url, href: &str) -> Result<Url> {
     base.join(href)
@@ -205,7 +243,41 @@ fn user_addresses(address_set: &[String], username: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::user_addresses;
+    use super::{same_site, user_addresses};
+
+    #[test]
+    fn same_site_allows_the_host_its_subdomains_and_its_parent_domain() {
+        let site = |a: &str, b: &str| {
+            same_site(&url::Url::parse(a).unwrap(), &url::Url::parse(b).unwrap())
+        };
+        // iCloud partition hosts.
+        assert!(site(
+            "https://caldav.icloud.com/",
+            "https://p42-caldav.icloud.com:443/1/calendars/"
+        ));
+        assert!(site("https://caldav.icloud.com", "https://icloud.com/"));
+        assert!(site(
+            "https://cloud.example.com",
+            "https://cloud.example.com/dav/"
+        ));
+        assert!(site("https://example.com", "https://dav.example.com/"));
+        assert!(site(
+            "https://CalDAV.Example.com",
+            "https://caldav.example.com./"
+        ));
+        assert!(site("https://10.0.0.5/dav/", "https://10.0.0.5:8443/"));
+
+        assert!(!site("https://caldav.icloud.com", "https://evil.example/"));
+        assert!(!site(
+            "https://caldav.icloud.com",
+            "https://icloud.com.evil.example/"
+        ));
+        assert!(!site("https://caldav.icloud.com", "https://xicloud.com/"));
+        // A two-label host does not widen to its TLD.
+        assert!(!site("https://example.com", "https://evil.com/"));
+        assert!(!site("https://10.0.0.5/", "https://10.0.0.6/"));
+        assert!(!site("https://10.0.0.5/", "https://evil.example/"));
+    }
 
     #[test]
     fn user_addresses_keep_mailto_and_email_like_user_names() {

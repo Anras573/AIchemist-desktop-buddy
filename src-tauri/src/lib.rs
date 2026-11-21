@@ -58,14 +58,10 @@ pub fn run() {
             settings_service::update_settings,
             settings_window::list_monitors,
             upcoming::list_upcoming,
-            upcoming::list_tasks,
             upcoming::create_task,
-            upcoming::update_task,
             upcoming::set_task_done,
             upcoming::delete_task,
-            snooze::snooze_all,
             cat_menu::show_cat_menu,
-            cat_menu::open_settings,
             popover_window::set_popover_open,
             accounts::list_accounts,
             accounts::add_account,
@@ -78,8 +74,6 @@ pub fn run() {
             reminders::get_current_bubble,
             reminders::dismiss_bubble,
             reminders::snooze_bubble,
-            reminders::get_paused,
-            reminders::set_paused,
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().app_log_dir() {
@@ -192,10 +186,6 @@ mod tests {
         );
         for perm in buddy["permissions"].as_array().unwrap() {
             let perm = perm.as_str().unwrap();
-            if perm == "allow-open-settings" {
-                // The buddy's cat menu opens the window (domain::ipc).
-                continue;
-            }
             assert!(
                 !perm.contains("settings")
                     && !perm.contains("monitors")
@@ -216,5 +206,189 @@ mod tests {
             .expect("app.security.csp is set");
 
         assert!(csp.contains("default-src 'self'"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Security review (task 4.4, docs/security.md): pin the IPC surface and
+    // the webview hardening, so widening either needs a test change.
+    // -----------------------------------------------------------------------
+
+    use std::collections::BTreeSet;
+
+    use crate::domain::ipc::{Window, COMMANDS, EVENTS};
+
+    /// Buddy-window plumbing commands outside the contract in `domain::ipc`
+    /// (both check the caller's window label too).
+    const BUDDY_PLUMBING: &[&str] = &["set_hit_regions", "set_popover_open"];
+
+    /// The only core (non-app) permission any window gets.
+    const LISTEN: &str = "core:event:allow-listen";
+
+    /// The quoted names inside `marker ... ]` in `source`.
+    fn quoted_names_after(source: &str, marker: &str) -> BTreeSet<String> {
+        let start = source.find(marker).expect("marker present") + marker.len();
+        let end = start + source[start..].find(']').expect("closing bracket");
+        source[start..end]
+            .split('"')
+            .skip(1)
+            .step_by(2)
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// Command names in `tauri::generate_handler![...]` in this file.
+    fn handler_names() -> BTreeSet<String> {
+        let source = include_str!("lib.rs");
+        let marker = "generate_handler![";
+        let start = source.find(marker).unwrap() + marker.len();
+        let end = start + source[start..].find(']').unwrap();
+        source[start..end]
+            .split(',')
+            .filter_map(|path| path.trim().rsplit("::").next())
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn contract_and_plumbing() -> BTreeSet<String> {
+        COMMANDS
+            .iter()
+            .map(|c| c.name)
+            .chain(BUDDY_PLUMBING.iter().copied())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn capability(window: Window) -> serde_json::Value {
+        let raw = match window {
+            Window::Buddy => include_str!("../capabilities/buddy.json"),
+            Window::Settings => include_str!("../capabilities/settings.json"),
+        };
+        serde_json::from_str(raw).unwrap()
+    }
+
+    #[test]
+    fn every_registered_command_is_declared_in_the_app_manifest() {
+        // Declared in build.rs = has an `allow-*` permission and is denied
+        // unless a capability grants it.
+        let declared = quoted_names_after(include_str!("../build.rs"), ".commands(&[");
+        assert_eq!(declared, handler_names());
+        assert_eq!(declared, contract_and_plumbing());
+    }
+
+    #[test]
+    fn capabilities_grant_exactly_the_contract_commands_per_window() {
+        for window in [Window::Buddy, Window::Settings] {
+            let cap = capability(window);
+            assert_eq!(cap["windows"], serde_json::json!([window.label()]));
+            assert!(cap.get("webviews").is_none() && cap.get("remote").is_none());
+
+            let granted: Vec<&str> = cap["permissions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|p| p.as_str().expect("plain permission identifiers only"))
+                .collect();
+            let unique: BTreeSet<&str> = granted.iter().copied().collect();
+            assert_eq!(unique.len(), granted.len(), "duplicate grant");
+
+            let plumbing: &[&str] = match window {
+                Window::Buddy => BUDDY_PLUMBING,
+                Window::Settings => &[],
+            };
+            let expected: BTreeSet<String> = COMMANDS
+                .iter()
+                .filter(|c| c.windows.contains(&window))
+                .map(|c| c.name)
+                .chain(plumbing.iter().copied())
+                .map(|name| format!("allow-{}", name.replace('_', "-")))
+                .chain([LISTEN.to_owned()])
+                .collect();
+            let granted: BTreeSet<String> = unique.into_iter().map(str::to_owned).collect();
+            assert_eq!(granted, expected, "{} capability", window.label());
+        }
+    }
+
+    #[test]
+    fn only_the_two_window_capabilities_exist() {
+        // Tauri loads every file in capabilities/, so a stray one would
+        // widen the grants unnoticed.
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities");
+        let names: BTreeSet<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            BTreeSet::from(["buddy.json".to_owned(), "settings.json".to_owned()])
+        );
+    }
+
+    #[test]
+    fn rust_only_commands_are_not_exposed_to_any_window() {
+        // Least privilege (owner 2026-11-21, docs/contracts.md): the cat
+        // menu and tray do these in Rust; no page calls them.
+        let declared = quoted_names_after(include_str!("../build.rs"), ".commands(&[");
+        let handlers = handler_names();
+        for name in [
+            "snooze_all",
+            "list_tasks",
+            "update_task",
+            "get_paused",
+            "set_paused",
+            "open_settings",
+        ] {
+            assert!(
+                COMMANDS.iter().all(|c| c.name != name),
+                "{name} in COMMANDS"
+            );
+            assert!(!declared.contains(name), "{name} declared in build.rs");
+            assert!(!handlers.contains(name), "{name} registered");
+        }
+    }
+
+    #[test]
+    fn chime_event_is_app_internal() {
+        assert!(EVENTS
+            .iter()
+            .all(|e| e.name != crate::reminders::CHIME_EVENT));
+    }
+
+    #[test]
+    fn webview_is_hardened() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(conf["app"]["withGlobalTauri"], false);
+        let security = &conf["app"]["security"];
+        assert_eq!(security["freezePrototype"], true);
+        assert!(security
+            .get("dangerousDisableAssetCspModification")
+            .is_none());
+        assert!(security.get("assetProtocol").is_none());
+
+        for key in ["csp", "devCsp"] {
+            let csp = security[key].as_str().unwrap();
+            for required in [
+                "default-src 'self'",
+                "script-src 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'none'",
+                "frame-ancestors 'none'",
+            ] {
+                assert!(csp.contains(required), "{key} lacks {required}");
+            }
+            assert!(!csp.contains("unsafe-eval"), "{key}");
+            assert!(!csp.contains('*'), "{key}");
+            assert!(!csp.contains("https:"), "{key}: no remote sources");
+        }
+        let csp = security["csp"].as_str().unwrap();
+        assert!(!csp.contains("unsafe-inline"));
+        // The only non-self source: Tauri's IPC endpoint on Windows.
+        let remote: Vec<&str> = csp
+            .split([' ', ';'])
+            .filter(|s| s.starts_with("http") || s.starts_with("ws"))
+            .collect();
+        assert_eq!(remote, ["http://ipc.localhost"]);
     }
 }
