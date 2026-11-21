@@ -1,6 +1,6 @@
 name: Perf
 
-# Idle memory of the buddy window (spec section 10, docs/perf.md).
+# Idle memory and CPU of the buddy window (spec section 10, docs/perf.md).
 # Manual, plus PRs that touch the window, the webview or the measurement.
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ on:
     paths:
       - .github/workflows/perf.yml
       - tools/measure-memory.*
+      - tools/measure-cpu.*
       - src-tauri/tauri.conf.json
       - src-tauri/Cargo.toml
       - src-tauri/src/**
@@ -27,10 +28,15 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   SETTLE: ${{ github.event.inputs.settle || '30' }}
+  # Sleeping state: settings with sleep-after-idle at its minimum (1 min),
+  # measured after a settle long enough for the cat to fall asleep.
+  SLEEP_SETTINGS: '{"schemaVersion":1,"system":{"sleepAfterIdleMinutes":1}}'
+  SLEEP_SETTLE: "90"
+  APP_ID: io.github.anras573.aichemistbuddy
 
 jobs:
-  idle-memory:
-    name: idle memory (${{ matrix.os }})
+  idle:
+    name: idle memory and CPU (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -64,11 +70,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $exe = 'src-tauri/target/release/aichemist-desktop-buddy.exe'
           Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue |
-            ForEach-Object { "WebView2 runtime: $($_.pv)" }
-          ./tools/measure-memory.ps1 -ExePath src-tauri/target/release/aichemist-desktop-buddy.exe -SettleSeconds $env:SETTLE *>&1 |
-            Tee-Object -FilePath perf.txt
-          "### Idle memory, ${{ matrix.os }}`n``````text" >> $env:GITHUB_STEP_SUMMARY
+            ForEach-Object { "WebView2 runtime: $($_.pv)" } | Tee-Object -FilePath perf.txt
+          function Measure-State([string]$title, [string]$script, [int]$settle) {
+            "`n### $title`n" | Tee-Object -FilePath perf.txt -Append
+            & $script -ExePath $exe -SettleSeconds $settle *>&1 | Tee-Object -FilePath perf.txt -Append
+          }
+          Measure-State 'idle: memory' ./tools/measure-memory.ps1 $env:SETTLE
+          Measure-State 'idle: CPU over 60 s' ./tools/measure-cpu.ps1 $env:SETTLE
+          $dir = Join-Path $env:APPDATA $env:APP_ID
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Set-Content -Path (Join-Path $dir 'settings.json') -Value $env:SLEEP_SETTINGS -Encoding utf8NoBOM
+          Measure-State 'sleeping: memory' ./tools/measure-memory.ps1 $env:SLEEP_SETTLE
+          Measure-State 'sleeping: CPU over 60 s' ./tools/measure-cpu.ps1 $env:SLEEP_SETTLE
+          "### Perf, ${{ matrix.os }}`n``````text" >> $env:GITHUB_STEP_SUMMARY
           Get-Content perf.txt >> $env:GITHUB_STEP_SUMMARY
           '```' >> $env:GITHUB_STEP_SUMMARY
 
@@ -76,10 +92,22 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -o pipefail
-          sw_vers
-          ./tools/measure-memory.sh --app "src-tauri/target/release/bundle/macos/AIchemist Desktop Buddy.app" --settle "$SETTLE" 2>&1 | tee perf.txt
+          app="src-tauri/target/release/bundle/macos/AIchemist Desktop Buddy.app"
+          { sw_vers; sysctl -n machdep.cpu.brand_string; } 2>&1 | tee perf.txt
+          measure() { # title script settle
+            printf '\n### %s\n\n' "$1" | tee -a perf.txt
+            "$2" --app "$app" --settle "$3" 2>&1 | tee -a perf.txt
+            sleep 3 # let the quit app's WebKit processes exit
+          }
+          measure 'idle: memory' ./tools/measure-memory.sh "$SETTLE"
+          measure 'idle: CPU over 60 s' ./tools/measure-cpu.sh "$SETTLE"
+          dir="$HOME/Library/Application Support/$APP_ID"
+          mkdir -p "$dir"
+          printf '%s\n' "$SLEEP_SETTINGS" > "$dir/settings.json"
+          measure 'sleeping: memory' ./tools/measure-memory.sh "$SLEEP_SETTLE"
+          measure 'sleeping: CPU over 60 s' ./tools/measure-cpu.sh "$SLEEP_SETTLE"
           {
-            echo "### Idle memory, ${{ matrix.os }}"
+            echo "### Perf, ${{ matrix.os }}"
             echo '```text'
             cat perf.txt
             echo '```'

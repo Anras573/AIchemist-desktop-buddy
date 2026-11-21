@@ -1,7 +1,10 @@
-# Performance: idle memory
+# Performance: idle memory and CPU
 
-Spec section 10 sets a target of **< 80 MB idle memory, buddy window only**.
-This page defines how that number is measured and records the results.
+Spec section 10 sets a target of **< 80 MB idle memory, buddy window only**,
+and **~0 % CPU when idle (sustained < 1 %)**. This page defines how those
+numbers are measured and records the results. CPU is read as a share of
+one core (the stricter reading); the share of the whole machine is reported
+next to it.
 
 ## Metric
 
@@ -78,13 +81,45 @@ Launch through `open` (or Finder): an app started directly from a terminal is
 not its own responsible process, and the script warns about it.
 `--pid PID` measures an already running instance.
 
+CPU over a window of time (default 60 s after a 30 s settle), summed over the
+app and the same WebKit processes:
+
+```sh
+tools/measure-cpu.sh --app "src-tauri/target/release/bundle/macos/AIchemist Desktop Buddy.app"
+```
+
+It reads each process's exact CPU time (user + system, `proc_pid_rusage`,
+converted from mach time units) at the start and the end of the window, and
+prints CPU time and wake-ups (package idle + interrupt) per process plus a
+`TOTAL` line with % of one core, % of the machine and wake-ups per second.
+`ps -o time` and `top` round to 10 ms or worse, too coarse for this.
+`--pid`, `--settle` and `--seconds` work as above.
+
+### Sleeping state in a release build
+
+`AICHEMIST_SLEEP_AFTER_IDLE_SECS` only works in debug builds. For a release
+build, save the minimum sleep-after-idle in the settings file before launch
+(`settings.json` in the app config directory: `%APPDATA%\<identifier>` on
+Windows, `~/Library/Application Support/<identifier>` on macOS; other
+sections fall back to their defaults):
+
+```json
+{"schemaVersion":1,"system":{"sleepAfterIdleMinutes":1}}
+```
+
+and measure with a 90 s settle, so the cat has been asleep for ~30 s when
+the window starts.
+
 ### CI
 
 `.github/workflows/perf.yml` builds a release on `windows-latest` and
-`macos-latest`, runs the scripts and writes the numbers to the job summary. It
-runs on `workflow_dispatch` and on PRs that touch the window, the webview
-config, the Rust code, the buddy page or the scripts. CI runners have no GPU,
-so their Windows numbers differ a little from a desktop's.
+`macos-latest`, measures memory and CPU (60 s window) in the `idle` state
+(30 s settle) and then in the `sleeping` state (settings file above, 90 s
+settle), and writes the numbers to the job summary. It runs on
+`workflow_dispatch` and on PRs that touch the window, the webview config,
+the Rust code, the buddy page or the scripts. CI runners have no GPU, so
+their numbers differ a little from a desktop's; the macOS runners are
+virtual machines with a different CPU count per run.
 
 ## Kept configuration (Windows)
 
@@ -350,6 +385,150 @@ Unchanged from the 2.2 idle numbers within noise. **Under 80 MB, CPU under
 macOS uses WKWebView, which does not take browser args; no separate GPU
 process was attributed to the app at idle.
 
+## M7 results (task 4.2)
+
+Feature-complete app (main at `63cc5f3`, task 3.6), release builds, kept
+config. Memory in MB (Windows: private working set / Private Bytes; macOS:
+`phys_footprint`), CPU over a 60 s window as % of one core (share of the
+whole machine in brackets). Targets (spec 10): memory < 80 MB idle, buddy
+window only; CPU sustained < 1 % idle or sleeping.
+
+### Windows, local desktop
+
+2026-11-21, Windows 11 Pro 23H2 (22631), AMD Ryzen 9 5900X (24 logical
+CPUs, 3.7 GHz nominal), WebView2 157.0.4341.60, 3440x1440. Temporary
+identifier `...dev42` (own WebView2 profile and data). Realistic
+configuration: default settings plus one CalDAV account pointing at an
+unreachable host (`https://perf-unreachable.invalid/`, password in
+Credential Manager), so the sync thread fails and backs off (30 s, 60 s,
+120 s, ... capped at the 10 min interval; checked in the app log), and
+four tasks in the database (three open, one done). Fresh launch per run.
+Sleeping was reached in the release build through the settings file
+(`sleepAfterIdleMinutes: 1`, 90 s settle, see "Sleeping state in a release
+build"); a screenshot during a run confirmed the sleeping cat. Account,
+credential and data were removed afterwards.
+
+| State | Runs | Memory (mean) | CPU per 60 s (mean) | Verdict |
+|---|---|---|---|---|
+| `idle` | memory 52.0 / 53.5 / 59.3; CPU 432 / 233 / 403 / 184 ms | **54.9** / 78.7, 5 processes | 313 ms, **0.52 %** (0.022 %) | pass |
+| `sleeping` | memory 55.6 / 52.7 / 58.5; CPU 81 / 89 / 100 ms | **55.6** / 81.5, 5 processes | 90 ms, **0.15 %** (0.006 %) | pass |
+| Bubble showing (task reminder fired ~15 s earlier, chime played) | 1 (baseline of the same launch: 57.3 / 81.4) | **61.3** / 91.3, 6 processes | not measured | pass (not the idle target) |
+| Popover open (cat clicked, 20 s settle) | 1 (baseline 55.7 / 82.5) | **61.0** / 87.0, 5 processes; closed again: 58.5 / 84.3 | not measured | pass (not the idle target) |
+| Settings open (cat menu, 30 s settle), 3 cycles | 79.7 / 81.9 / 80.4 | **80.7** / 114.6, 6 processes | not measured | not the idle target (buddy window only) |
+| Settings closed again (`WM_CLOSE`, 30 s settle), 3 cycles | 63.0 / 61.3 / 61.3 | **61.9** / 87.8, 5 processes | not measured | renderer released; +3-6 MB stays, flat |
+
+Notes:
+
+- A first `idle` memory run 3 read 66.0 MB with 6 processes: the tree walk
+  had picked up an unrelated process whose recorded parent PID had been
+  reused by the app. The scripts now require a child to start after its
+  parent (and stop only the app and `msedgewebview2` processes); the run
+  was repeated (59.3 MB). Without the stray process it was 54.4 MB.
+- `idle` CPU: the app process itself used 6-8 ms per minute (sync
+  retries included); the rest is the WebView2 browser (~80 %) and
+  renderer drawing the idle animation (0.8 frame changes per second).
+  `sleeping`: the app process used 0.3-1.9 ms per minute.
+- Settings: as in task 2.4/3.5, the window's renderer (~17 MB) goes away
+  on close and the browser process keeps a few MB it grew; the remainder
+  does not grow over further cycles (63.0, 61.3, 61.3).
+- Bubble: the chime starts WebView2's audio service process (6th
+  process), as in task 2.2.
+- Popover and Settings were driven with synthetic mouse and keyboard input
+  (click on the cat; right-click, cat menu "Settings"), so no DevTools port
+  was open this time.
+
+### CI runners
+
+`.github/workflows/perf.yml` (this PR) on the branch of this PR, which was
+main at `63cc5f3` plus measurement-only changes. Default settings (no
+accounts, no tasks), 3 workflow runs. The PR's own perf check re-runs it
+on the branch rebased onto later main.
+
+| Platform | State | Run 1 | Run 2 | Run 3 | Mean | Verdict |
+|---|---|---|---|---|---|---|
+| windows-latest (WebView2 157.0.4341.46, 4 vCPUs) | `idle` memory | 51.7 / 75.7 | 52.9 / 76.8 | 52.8 / 78.0 | **52.5** / 76.8 | pass |
+| | `idle` CPU | 0.47 % | 0.47 % | 0.41 % | **0.45 %** (0.11 %) | pass |
+| | `sleeping` memory | 47.0 / 71.3 | 50.2 / 76.0 | 47.3 / 72.2 | **48.2** / 73.2 | pass |
+| | `sleeping` CPU | 0.24 % | 0.23 % | 0.65 % | **0.37 %** (0.09 %) | pass |
+| macos-latest (macOS 26.7.2, virtual Apple silicon: run 1 M1 with 3 CPUs, run 2 M2 Pro with 5, run 3 M2 Pro with 5) | `idle` footprint | 49.6 | 48.3 | 47.5 | **48.5** | pass |
+| | `idle` CPU | 0.48 % (0.16 %) | 0.82 % (0.16 %) | 0.72 % (0.14 %) | **0.67 %** (0.16 %) | pass |
+| | `sleeping` footprint | 50.8 | 48.7 | 49.5 | **49.7** | pass |
+| | `sleeping` CPU | 0.84 % (0.28 %) | 1.001 % (0.20 %) | 0.91 % (0.18 %) | **0.92 %** (0.22 %) | **pass with no margin** (one run at 1.001 %) |
+
+macOS processes: the app, `WebKit.WebContent`, `WebKit.GPU` and
+`WebKit.Networking` (4; the GPU process is now attributed to the app,
+unlike at M1). Per-process CPU (run 2, `idle`): app 126 ms, GPU 194 ms,
+WebContent 176 ms, Networking 0.4 ms per minute. Unlike on Windows, the
+app process itself does real work per frame on macOS (WKWebView hands its
+layer tree to the UI process), and the app process sees 20-40 wake-ups per
+second while the cat animates.
+
+Windows CI `sleeping` run 3 (0.65 %) was mostly the WebView2 browser
+process and is an outlier against runs 1-2 and the local desktop
+(0.13-0.17 %); every Windows reading is under 1 %.
+
+**macOS `sleeping` CPU is at the limit.** Its mean (0.92 % of one core,
+0.2 % of the machine) is under the 1 % target, but with no margin: run 2
+read 1.001 %. On macOS a drawn frame costs ~9-14 ms of CPU across the app,
+WebContent and GPU processes (Windows: ~3 ms), and the sleeping state costs
+more per frame than idle on all three runs (0.67 vs 0.81 frame changes per
+second, yet more CPU). These are virtual machines without a real GPU, with
+3-5 vCPUs that differ from run to run, so a real Mac may well read lower,
+but that is unverified. Raised with the owner, target unchanged. Options,
+cheapest first:
+
+1. **Measure on a real Mac** (`tools/measure-cpu.sh`, both states) before
+   deciding; the CI VMs may overstate it.
+2. **Pack art only:** fewer frame changes in `sleeping` (it changes every
+   1.3 s; e.g. holding the breath poses ~2.5 s halves the changes). CPU
+   scales with frame changes per second on both platforms (2.1b).
+3. **Accept** the current numbers (mean under 1 %, 0.2 % of the machine).
+4. Code, macOS only, unmeasured: draw by swapping a CSS background
+   position on a `div` instead of drawing on a canvas, which may let
+   WebKit skip repainting the canvas layer. Needs a Mac to measure.
+
+### Timers and background threads (spec 10: "one scheduler timer, no busy loops or fixed-interval polling on the UI side")
+
+Audit of `src-tauri/src` and `src/` on main at `63cc5f3`, re-checked after
+tasks 4.3 and 4.4 merged (`dd08824`: no new threads or timers; the chime is
+now an event instead of an evaluated script). No busy loops and no
+`setInterval` or `requestAnimationFrame` loop anywhere.
+
+Rust threads and timers:
+
+| Thread / timer | Exists | Wakes | Periodic wake while idle? | Why |
+|---|---|---|---|---|
+| `scheduler` (reminder scheduler driver, `scheduler/driver.rs`) | always | at the next reminder or quiet-hours boundary, on any change (condition variable), and at most 60 s after the last wake | yes: once a minute when nothing is due sooner | The single timer for all reminders. The condition variable times out on the monotonic clock, which stops while the computer sleeps on macOS and ignores wall-clock changes; the 60 s cap bounds how late a reminder can fire after resume or a clock change. A wake that finds nothing due costs microseconds. |
+| `calendar-sync` (`sync/worker.rs`) | always | at the next regular sync (5-15 min, default 10), the next retry (backoff 30 s, doubling, capped at the interval), on `sync_now` / settings changes, and at most 60 s after the last wake | yes: once a minute | Same clock argument, and it detects resume from sleep by comparing wall-clock and monotonic time over each wait (tao reports no resume on desktop). |
+| `buddy-idle-timer` (`buddy_state.rs`) | always | at last interaction + sleep-after-idle (default 10 min); no deadline while asleep or in a non-idle state | no | One deadline, moved by interactions. |
+| `ledger-writer` (`reminders/ledger_writer.rs`) | always | only when the scheduler submits a ledger snapshot | no | Keeps SQLite writes off the scheduler lock. |
+| `update-check` (`system/update_check.rs`) | only while the opt-in update check is on (default off: no thread) | 60 s after it is turned on, then every 24 h (or later on `Retry-After`) | daily | The feature itself. |
+| Graph sign-in loopback listener (`graph/loopback.rs`) | only during an interactive Microsoft sign-in (5 min timeout) | polls a non-blocking `accept` every 100 ms | not while idle | Lets the wait be cancelled. Only runs while the user is signing in in the browser. |
+| Graph throttling retry (`graph/provider.rs`) | during a sync that gets 429/503 | sleeps `Retry-After` (at most 10 s), once | no | Server-requested backoff. |
+| Already-running notice (`already_running.rs`, Windows) | on a second launch | one-shot message box thread | no | |
+| Tauri async runtime (tokio) workers | always | one-shot jobs (window creation, storage calls off the main thread, startup pruning) | no (parked) | |
+| Click-through (`click_through.rs`) | always | Windows: window region, no events or timers; macOS: tracking-area events | no | |
+
+Buddy page (WebView):
+
+| Timer | Exists | Interval | Why |
+|---|---|---|---|
+| Renderer timeout (`buddy/main.ts`) | while the current state still has a frame change ahead and the window is visible | until the next frame change (per-frame durations, 120 ms to 5 s); exactly one pending | Draws only when the frame changes. Static frames, finished one-shot animations and a hidden window schedule nothing. |
+| Bubble time refresh (`buddy/bubble.ts`) | only while a bubble shows | next minute boundary | Keeps "in 5 min" texts right. |
+| Popover minute refresh (`buddy/popover.ts`) | only while the popover is open | next minute boundary | Same, for the lists. |
+| Popover idle close (`buddy/popover.ts`) | only while the popover is open | 60 s after the last interaction inside it | Closes a forgotten popover. |
+| Hover throttle (`buddy/main.ts`) | not a timer | drops pointer reports less than 3 s apart | Limits IPC on mouse movement. |
+
+The settings page has no timers.
+
+**Verdict:** met. All reminders go through the one scheduler timer, and
+the other threads each wait on a single deadline for their own job instead
+of polling. The only periodic wakes while idle are the two 60 s safety
+caps (scheduler and sync), justified above; the measured app-process CPU
+with both running and the sync failing every few minutes is 6-8 ms per
+minute on Windows. Nothing polls on the UI side: the page's only
+recurring work is the frame timer of the cat's own animation.
+
 ## Verdict (2026-11-16)
 
 - **macOS: 38 MB footprint, well under 80 MB** with no tweaks.
@@ -369,6 +548,12 @@ process was attributed to the app at idle.
   with a bubble showing after the chime (audio service process added).
 - Calendar sync (2026-11-18, task 3.6): 51.4 MB private working set idle
   with a failing account retrying; CPU 0.28 % of one core.
+- M7 (2026-11-21, task 4.2, feature-complete app): memory passes on both
+  platforms (Windows desktop 55-56 MB idle/sleeping, CI 48-53 MB; macOS CI
+  48-50 MB). CPU passes on Windows (desktop 0.52 % idle, 0.15 % sleeping;
+  CI 0.45 % / 0.37 %) and for macOS idle (0.67 %). **macOS sleeping is
+  0.92 % of one core on average with one CI run at 1.001 %: no margin,
+  raised with the owner** (see M7 results for options). Timer audit: met.
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 
