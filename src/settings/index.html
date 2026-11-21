@@ -65,8 +65,7 @@
 
       <fieldset>
         <legend>System</legend>
-        <label class="check"><input id="system.launchAtLogin" type="checkbox" /> Launch at login
-          <span class="hint">(saved now, takes effect in a later version)</span></label>
+        <label class="check"><input id="system.launchAtLogin" type="checkbox" /> Launch at login</label>
 
         <label class="check"><input id="system.quietHours.enabled" type="checkbox" /> Quiet hours (no reminder bubbles)</label>
         <div class="row">
@@ -83,8 +82,10 @@
         <input id="system.sleepAfterIdleMinutes" type="number" min="1" max="240" step="1" />
         <p class="error" data-error-for="system.sleepAfterIdleMinutes"></p>
 
-        <label class="check"><input id="system.checkForUpdates" type="checkbox" /> Check for updates
-          <span class="hint">(opt-in; saved now, takes effect in a later version)</span></label>
+        <label class="check"><input id="system.checkForUpdates" type="checkbox" /> Check for updates</label>
+        <p class="hint">Opt-in. Once a day the app asks GitHub for the latest release (no personal data
+          is sent). When a newer version exists, the tray menu shows "Update available"; nothing is
+          downloaded automatically.</p>
       </fieldset>
 
     </form>

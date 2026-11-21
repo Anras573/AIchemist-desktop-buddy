@@ -9,6 +9,8 @@
 //!   menu item and in the tooltip.
 //! - [`sync_paused`]: keeps the check mark in sync; called by
 //!   [`crate::pause::set_paused`].
+//! - [`set_update_available`]: "Update available: vX.Y.Z" item above Quit
+//!   (task 4.1, [`crate::system`]); opens the release page.
 
 use std::sync::Mutex;
 
@@ -29,6 +31,7 @@ const ID_UPCOMING: &str = "upcoming";
 const ID_PAUSE: &str = "pause";
 const ID_QUIT: &str = "quit";
 const ID_STATUS: &str = "status";
+const ID_UPDATE: &str = "update-available";
 
 /// Managed state: the menu items that change at runtime.
 struct TrayState<R: Runtime> {
@@ -39,6 +42,9 @@ struct TrayState<R: Runtime> {
     status_separator: PredefinedMenuItem<R>,
     /// Whether the status item and its separator are in the menu.
     error_shown: Mutex<bool>,
+    update: MenuItem<R>,
+    /// Release page of the update shown, `None` while the item is hidden.
+    update_url: Mutex<Option<String>>,
 }
 
 /// Creates the tray icon and menu. Call once during setup.
@@ -64,6 +70,8 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     // Not in the menu until `set_error` shows it.
     let status = MenuItem::with_id(app, ID_STATUS, "", false, None::<&str>)?;
     let status_separator = PredefinedMenuItem::separator(app)?;
+    // Not in the menu until `set_update_available` shows it.
+    let update = MenuItem::with_id(app, ID_UPDATE, "", true, None::<&str>)?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip(TOOLTIP)
@@ -85,6 +93,8 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         status,
         status_separator,
         error_shown: Mutex::new(false),
+        update,
+        update_url: Mutex::new(None),
     });
     Ok(())
 }
@@ -103,6 +113,17 @@ fn on_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
             crate::pause::set_paused(app, !crate::pause::is_paused(app));
         }
         ID_QUIT => app.exit(0),
+        ID_UPDATE => {
+            let url = app.try_state::<TrayState<R>>().and_then(|s| {
+                s.update_url
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone()
+            });
+            if let Some(url) = url {
+                crate::system::open_release_page(&url);
+            }
+        }
         _ => {}
     }
 }
@@ -148,6 +169,32 @@ pub fn set_error<R: Runtime>(app: &AppHandle<R>, message: Option<&str>) {
                 let _ = state.menu.remove(&state.status);
                 let _ = state.menu.remove(&state.status_separator);
                 *shown = false;
+            }
+        }
+    }
+}
+
+/// Shows (`Some((tag, release_page_url))`) or hides (`None`) the "Update
+/// available" item, placed above the separator before Quit.
+pub fn set_update_available<R: Runtime>(app: &AppHandle<R>, update: Option<(&str, &str)>) {
+    let Some(state) = app.try_state::<TrayState<R>>() else {
+        return;
+    };
+    let mut url = state.update_url.lock().unwrap_or_else(|e| e.into_inner());
+    match update {
+        Some((tag, page)) => {
+            let _ = state.update.set_text(format!("Update available: {tag}"));
+            if url.is_none() {
+                log::info!("tray: showing \"Update available: {tag}\"");
+                // Before the last separator and Quit.
+                let position = state.menu.items().map_or(0, |i| i.len().saturating_sub(2));
+                let _ = state.menu.insert(&state.update, position);
+            }
+            *url = Some(page.to_owned());
+        }
+        None => {
+            if url.take().is_some() {
+                let _ = state.menu.remove(&state.update);
             }
         }
     }
