@@ -23,7 +23,7 @@ A small, always-running desktop companion: an animated pixel-art gray tabby cat 
 - No free-roaming or window-walking cat.
 - No recurring tasks, no natural-language task entry, no CLI task entry.
 - No external task sources (Microsoft To Do, VTODO), but leave an extension point (section 7.3).
-- No signed or notarized builds.
+- No certificate-signed or notarized builds. macOS builds are ad-hoc signed (no certificate) so they open on Apple silicon after the Gatekeeper workaround.
 
 ## 3. Tech stack (decided)
 
@@ -210,7 +210,7 @@ Each milestone ends in a working, committed state with tests passing.
 4. **Paused reminders:** replay on unpause (tasks, and meetings not yet started; batched into one bubble).
 5. **Quiet hours:** included in v1, off by default.
 6. **Multi-monitor:** defaults to the primary monitor, bottom-right corner. Corner and monitor are changeable in Settings.
-7. **Unsigned macOS builds:** v1 ships unsigned. The README documents the right-click-Open and `xattr` workaround. Notarization is not required.
+7. **Unsigned macOS builds:** v1 builds are not signed with a certificate and not notarized. macOS builds are ad-hoc signed (`APPLE_SIGNING_IDENTITY="-"` in the release workflow), so they open on Apple silicon after the Gatekeeper workaround. The README documents the Open Anyway, right-click-Open and `xattr` workarounds. Notarization is not required.
 8. **Sprite style:** gray tabby for the placeholder generator.
 9. **Sound:** the agent generates a simple placeholder chime and bundles it.
 
