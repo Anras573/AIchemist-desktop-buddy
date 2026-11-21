@@ -33,13 +33,9 @@ app only connects to the calendar servers you configure, to Microsoft's login an
 endpoints if you add a Microsoft 365 account, and, if you opt in, to GitHub to check for a new release. Logs never
 contain passwords, tokens or event contents.
 
-> **Status: pre-release.** Not everything above is wired up yet on `main`:
->
-> - **Calendar sync** (task 3.6): you can add accounts, test the connection and choose calendars,
->   but automatic syncing, and so meeting reminders from your calendars, is still being wired
->   in. Task reminders work today.
-> - **Launch at login** and **Check for updates** (task 4.1) can be switched on in Settings and
->   are saved, but do nothing yet.
+> **Status: pre-release.** Calendar sync (task 3.6) is still being wired in on `main`: you can
+> add accounts, test the connection and choose calendars, but automatic syncing, and so meeting
+> reminders from your calendars, does not run yet. Task reminders work today.
 
 ## Install
 
@@ -48,7 +44,7 @@ Download the installer for your system from the
 release lists SHA-256 checksums in `SHA256SUMS.txt`; checking them is a good idea because the
 installers are unsigned.
 
-The builds are **not code-signed** (Windows) and **not notarized** (macOS). This is a deliberate
+The builds are **not code-signed** (Windows) and **not notarized** (macOS; the app is only ad-hoc signed, without a developer certificate). This is a deliberate
 choice for a free hobby project, not a sign that something is wrong, but your OS will warn you
 the first time. Here is how to get past the warning.
 
@@ -96,8 +92,10 @@ macOS are too.
 
 ### Uninstall
 
-Use **Settings > Apps** on Windows, or move the app to the Trash on macOS. Your settings, tasks
-and logs stay behind; delete them by hand if you like:
+If you turned on **Launch at login**, turn it off in Settings first (it adds a `Run` registry
+value on Windows and `~/Library/LaunchAgents/io.github.anras573.aichemistbuddy.plist` on macOS).
+Then use **Settings > Apps** on Windows, or move the app to the Trash on macOS. Your settings,
+tasks and logs stay behind; delete them by hand if you like:
 
 | | Settings and database | Logs |
 |---|---|---|
@@ -119,6 +117,8 @@ take clicks; the rest of its window lets clicks through to whatever is below.
   **Quit**.
 - **Tray / menu bar icon:** **Open Settings**, **Upcoming**, **Pause reminders** (a toggle),
   **Quit**. If a calendar account fails to sync, a status line appears at the top of this menu.
+  With the update check on, an **Update available: vX.Y.Z** item appears when a newer release
+  exists; it opens the release page (the app never downloads or installs anything itself).
 - **Reminder bubble:** **Dismiss** handles that reminder; **Snooze** brings it back after the
   snooze time (5 minutes by default). Task bubbles also have **Mark done**. An overdue task fires
   once and then shows as overdue in Upcoming; it does not nag.
@@ -132,8 +132,9 @@ Open Settings from the tray or the cat's menu. Every change is saved and applied
 - **Reminder behavior:** lead times before meetings, snooze durations, sound on or off, skip
   all-day events, skip declined events, calendar sync interval (5 to 15 minutes).
 - **Appearance:** cat size, screen corner, monitor, opacity, sprite pack.
-- **System:** launch at login, quiet hours, minutes before the cat sleeps, check for updates
-  (off by default).
+- **System:** launch at login, quiet hours, minutes before the cat sleeps, and check for
+  updates (off by default; when on, the app asks GitHub for the latest release once a day,
+  sending no personal data).
 - **Calendar accounts:** add and remove accounts, test the connection, choose which calendars
   to include, sign in again or change a password, and see each account's sync status and last
   error.
