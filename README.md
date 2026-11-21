@@ -33,9 +33,10 @@ app only connects to the calendar servers you configure, to Microsoft's login an
 endpoints if you add a Microsoft 365 account, and, if you opt in, to GitHub to check for a new release. Logs never
 contain passwords, tokens or event contents.
 
-> **Status: pre-release.** Calendar sync (task 3.6) is still being wired in on `main`: you can
-> add accounts, test the connection and choose calendars, but automatic syncing, and so meeting
-> reminders from your calendars, does not run yet. Task reminders work today.
+> **Status: pre-release.** All v1 features are in place: task reminders, meeting reminders
+> from CalDAV and Microsoft 365 calendars (synced in the background, with "Sync now" in
+> Settings), launch at login and the opt-in update check. Syncing has not yet been tested
+> against real iCloud, Nextcloud or Microsoft 365 accounts, so please report problems.
 
 ## Install
 
