@@ -132,7 +132,7 @@ CI runs `npm run check:sprites` on every PR.
 | State | Frames | Timing | Frame changes per second |
 |---|---|---|---|
 | `idle` | 11 | sit 4 s, blink, sit 3.5 s, tail swish (4 x 150 ms), sit 5 s, double blink; 13.8 s cycle | 0.8 |
-| `sleeping` | 7 | breathing out / in, each held ~2.6 s; a "z" rises every 1.3 s, then a pause; 10.4 s cycle | 0.67 |
+| `sleeping` | 7 | breathing out / in, each held ~5.2 s; a "z" rises every 2.6 s, then a pause; 20.8 s cycle | 0.34 |
 | `thinking` | 4 | 4 fps (only during a sync) | 4 |
 | `alert` | 5 | quick hop (4 frames, ~100 ms), hold 1.4 s | 2.6 |
 

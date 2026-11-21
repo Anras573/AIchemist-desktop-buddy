@@ -337,15 +337,17 @@ const Z = [
 ];
 
 /** sleeping: [breath, visible z indices, ms]. Breathing out (0) and in (1),
- * each held ~2.6 s; the "z"s rise one by one every 1.3 s, then a pause. */
+ * each held ~5.2 s; the "z"s rise one by one every 2.6 s, then a pause.
+ * Slow on purpose: each drawn frame costs CPU, and macOS draws are 3-4x
+ * dearer than Windows (docs/perf.md, M7). */
 const SLEEPING = [
-  [0, [0], 1300],
-  [0, [0, 1], 1300],
-  [1, [0, 1, 2], 1300],
-  [1, [1, 2], 1300],
-  [0, [2], 1300],
-  [0, [], 1300],
-  [1, [], 2600],
+  [0, [0], 2600],
+  [0, [0, 1], 2600],
+  [1, [0, 1, 2], 2600],
+  [1, [1, 2], 2600],
+  [0, [2], 2600],
+  [0, [], 2600],
+  [1, [], 5200],
 ];
 
 const STATES = {
