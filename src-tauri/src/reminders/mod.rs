@@ -11,8 +11,8 @@
 //!   leaving `alert`. Ledger changes are saved by a separate worker thread
 //!   ([`ledger_writer`]), coalescing bursts.
 //! - Commands for the buddy window: `get_current_bubble`, `dismiss_bubble`,
-//!   `snooze_bubble`, `get_paused` and `set_paused`. `snooze_all` (command
-//!   and cat menu) lives in [`crate::snooze`] and calls [`snooze_all`]; the
+//!   `snooze_bubble` (`get_paused` and `set_paused` exist but are not
+//!   registered). Snooze all (cat menu) lives in [`crate::snooze`] and calls [`snooze_all`]; the
 //!   bubble's "Mark done" is `set_task_done` in [`crate::upcoming`].
 //!
 //! # Hooks for other tasks
@@ -183,14 +183,17 @@ pub async fn snooze_bubble(app: AppHandle, request: SnoozeBubbleRequest) -> Resu
     reminders(&app)?.snooze(request.bubble_id, request.minutes)
 }
 
-/// IPC `get_paused` (buddy window).
+/// IPC `get_paused`.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub fn get_paused(app: AppHandle) -> bool {
     crate::pause::is_paused(&app)
 }
 
-/// IPC `set_paused` (buddy window). Same path as the tray toggle. Returns
-/// the new value.
+/// IPC `set_paused`. Same path as the tray toggle. Returns the new value.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub async fn set_paused(app: AppHandle, request: SetPausedRequest) -> bool {
     crate::pause::set_paused(&app, request.paused);

@@ -414,9 +414,6 @@ fn buddy_capability_grants_the_reminder_commands() {
         "get_current_bubble",
         "dismiss_bubble",
         "snooze_bubble",
-        "snooze_all",
-        "get_paused",
-        "set_paused",
         "set_task_done",
     ] {
         let spec = crate::domain::ipc::COMMANDS

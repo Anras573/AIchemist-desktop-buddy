@@ -94,11 +94,19 @@ pub mod command {
     pub const SNOOZE_BUBBLE: &str = "snooze_bubble";
     /// Snooze the current bubble and everything queued behind it.
     /// Request: [`SnoozeAllRequest`](super::SnoozeAllRequest). Response: `()`.
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const SNOOZE_ALL: &str = "snooze_all";
     /// Data for the upcoming popover. Request: none.
     /// Response: [`UpcomingResponse`](super::UpcomingResponse).
     pub const LIST_UPCOMING: &str = "list_upcoming";
     /// All tasks, open and done. Request: none. Response: `Vec<`[`Task`](crate::domain::Task)`>`.
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const LIST_TASKS: &str = "list_tasks";
     /// Create a task. Request: [`CreateTaskRequest`](super::CreateTaskRequest).
     /// Response: the new [`Task`](crate::domain::Task).
@@ -106,6 +114,10 @@ pub mod command {
     /// Edit a task's title and due time; a changed due time re-arms its
     /// reminder. Request: [`UpdateTaskRequest`](super::UpdateTaskRequest).
     /// Response: the updated [`Task`](crate::domain::Task).
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const UPDATE_TASK: &str = "update_task";
     /// Mark a task done or undone. Marking done also handles its reminder
     /// (the bubble's "Mark done" uses this). Request:
@@ -115,13 +127,25 @@ pub mod command {
     /// Delete a task. Request: [`TaskRequest`](super::TaskRequest). Response: `()`.
     pub const DELETE_TASK: &str = "delete_task";
     /// Whether reminders are paused. Request: none. Response: `bool`.
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const GET_PAUSED: &str = "get_paused";
     /// Pause or resume reminders (resuming replays missed ones, spec 7.5).
     /// Request: [`SetPausedRequest`](super::SetPausedRequest). Response: the new `bool`.
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const SET_PAUSED: &str = "set_paused";
     /// Pop up the native right-click menu at the cursor. Request: none. Response: `()`.
     pub const SHOW_CAT_MENU: &str = "show_cat_menu";
     /// Open (or focus) the settings window. Request: none. Response: `()`.
+    ///
+    /// Not granted to any window (least privilege, owner 2026-11-21):
+    /// not in [`COMMANDS`](super::COMMANDS) and not registered. The cat
+    /// menu and tray do this in Rust.
     pub const OPEN_SETTINGS: &str = "open_settings";
 
     // ----- Settings window -----
@@ -218,23 +242,11 @@ pub const COMMANDS: &[CommandSpec] = &[
         windows: BUDDY,
     },
     CommandSpec {
-        name: command::SNOOZE_ALL,
-        windows: BUDDY,
-    },
-    CommandSpec {
         name: command::LIST_UPCOMING,
         windows: BUDDY,
     },
     CommandSpec {
-        name: command::LIST_TASKS,
-        windows: BUDDY,
-    },
-    CommandSpec {
         name: command::CREATE_TASK,
-        windows: BUDDY,
-    },
-    CommandSpec {
-        name: command::UPDATE_TASK,
         windows: BUDDY,
     },
     CommandSpec {
@@ -246,19 +258,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         windows: BUDDY,
     },
     CommandSpec {
-        name: command::GET_PAUSED,
-        windows: BUDDY,
-    },
-    CommandSpec {
-        name: command::SET_PAUSED,
-        windows: BUDDY,
-    },
-    CommandSpec {
         name: command::SHOW_CAT_MENU,
-        windows: BUDDY,
-    },
-    CommandSpec {
-        name: command::OPEN_SETTINGS,
         windows: BUDDY,
     },
     CommandSpec {

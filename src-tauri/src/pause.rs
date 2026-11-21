@@ -2,8 +2,8 @@
 //!
 //! In memory only (a restart resumes reminders). [`set_paused`] forwards to
 //! the scheduler (`SchedulerDriver::set_paused`, through
-//! [`crate::reminders::scheduler_set_paused`]); the `get_paused` /
-//! `set_paused` commands in [`crate::reminders`] use [`is_paused`] and
+//! [`crate::reminders::scheduler_set_paused`]); the (unregistered)
+//! `get_paused` / `set_paused` commands in [`crate::reminders`] use [`is_paused`] and
 //! [`set_paused`].
 
 use std::sync::atomic::{AtomicBool, Ordering};

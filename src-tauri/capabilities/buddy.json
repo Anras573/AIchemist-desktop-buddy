@@ -9,20 +9,14 @@
     "allow-report-interaction",
     "allow-get-appearance",
     "allow-list-upcoming",
-    "allow-list-tasks",
     "allow-create-task",
-    "allow-update-task",
     "allow-set-task-done",
     "allow-delete-task",
-    "allow-snooze-all",
     "allow-show-cat-menu",
-    "allow-open-settings",
     "allow-set-popover-open",
     "allow-get-current-bubble",
     "allow-dismiss-bubble",
     "allow-snooze-bubble",
-    "allow-get-paused",
-    "allow-set-paused",
     "core:event:allow-listen"
   ]
 }

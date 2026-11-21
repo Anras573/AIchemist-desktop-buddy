@@ -123,6 +123,8 @@ pub async fn list_upcoming<R: Runtime>(app: AppHandle<R>) -> Result<UpcomingResp
 }
 
 /// IPC `list_tasks`.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub async fn list_tasks<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Task>> {
     let storage = app_storage::storage(&app)?;
@@ -139,6 +141,8 @@ pub async fn create_task<R: Runtime>(
 }
 
 /// IPC `update_task`.
+/// Not registered: no window may call it (least privilege, docs/contracts.md
+/// 2026-11-21). Kept so a future page can be granted it again.
 #[tauri::command]
 pub async fn update_task<R: Runtime>(
     app: AppHandle<R>,

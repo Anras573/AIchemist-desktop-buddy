@@ -33,7 +33,7 @@
 //!
 //! # Where credentials go
 //!
-//! Every request carries Basic auth, so [`client::Client::send`] sends one
+//! Every request carries Basic auth, so `client::Client::send` sends one
 //! only to an `https` URL on the configured server's site: the configured
 //! host itself, its subdomains, or (for a host with three or more labels)
 //! the other hosts under its parent domain. That covers iCloud, whose

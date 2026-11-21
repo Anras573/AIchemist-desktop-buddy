@@ -58,14 +58,10 @@ pub fn run() {
             settings_service::update_settings,
             settings_window::list_monitors,
             upcoming::list_upcoming,
-            upcoming::list_tasks,
             upcoming::create_task,
-            upcoming::update_task,
             upcoming::set_task_done,
             upcoming::delete_task,
-            snooze::snooze_all,
             cat_menu::show_cat_menu,
-            cat_menu::open_settings,
             popover_window::set_popover_open,
             accounts::list_accounts,
             accounts::add_account,
@@ -78,8 +74,6 @@ pub fn run() {
             reminders::get_current_bubble,
             reminders::dismiss_bubble,
             reminders::snooze_bubble,
-            reminders::get_paused,
-            reminders::set_paused,
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().app_log_dir() {
@@ -192,10 +186,6 @@ mod tests {
         );
         for perm in buddy["permissions"].as_array().unwrap() {
             let perm = perm.as_str().unwrap();
-            if perm == "allow-open-settings" {
-                // The buddy's cat menu opens the window (domain::ipc).
-                continue;
-            }
             assert!(
                 !perm.contains("settings")
                     && !perm.contains("monitors")
@@ -332,6 +322,29 @@ mod tests {
             names,
             BTreeSet::from(["buddy.json".to_owned(), "settings.json".to_owned()])
         );
+    }
+
+    #[test]
+    fn rust_only_commands_are_not_exposed_to_any_window() {
+        // Least privilege (owner 2026-11-21, docs/contracts.md): the cat
+        // menu and tray do these in Rust; no page calls them.
+        let declared = quoted_names_after(include_str!("../build.rs"), ".commands(&[");
+        let handlers = handler_names();
+        for name in [
+            "snooze_all",
+            "list_tasks",
+            "update_task",
+            "get_paused",
+            "set_paused",
+            "open_settings",
+        ] {
+            assert!(
+                COMMANDS.iter().all(|c| c.name != name),
+                "{name} in COMMANDS"
+            );
+            assert!(!declared.contains(name), "{name} declared in build.rs");
+            assert!(!handlers.contains(name), "{name} registered");
+        }
     }
 
     #[test]
