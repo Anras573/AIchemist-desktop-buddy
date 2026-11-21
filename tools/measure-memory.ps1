@@ -70,11 +70,14 @@ try {
     }
 
     # Collect the root and every descendant (WebView2 browser, renderer,
-    # GPU, utility and crashpad processes).
+    # GPU, utility and crashpad processes). Windows keeps a dead parent's PID
+    # in ParentProcessId, and PIDs are reused, so a child must also have
+    # started after its parent or an unrelated process can be counted.
     $ids = [System.Collections.Generic.List[uint32]]::new()
     $ids.Add([uint32]$rootId)
     for ($i = 0; $i -lt $ids.Count; $i++) {
-        foreach ($c in $all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -ne $ids[$i] }) {
+        $parent = $all | Where-Object ProcessId -eq $ids[$i]
+        foreach ($c in $all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -ne $ids[$i] -and $_.CreationDate -ge $parent.CreationDate }) {
             if (-not $ids.Contains([uint32]$c.ProcessId)) { $ids.Add([uint32]$c.ProcessId) }
         }
     }
@@ -131,9 +134,12 @@ try {
 }
 finally {
     if ($launched) {
-        # Stop the WebView2 tree too, children first.
+        # Stop the WebView2 tree too, children first. Only WebView2
+        # processes: never anything else that the tree walk might have found.
         foreach ($id in ($ids | Sort-Object -Descending)) {
-            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            if ((Get-Process -Id $id -ErrorAction SilentlyContinue).Name -eq 'msedgewebview2') {
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            }
         }
         Stop-Process -Id $launched.Id -Force -ErrorAction SilentlyContinue
     }

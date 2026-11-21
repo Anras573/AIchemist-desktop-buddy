@@ -65,12 +65,16 @@ public static extern bool QueryProcessCycleTime(System.IntPtr process, out ulong
 public static extern bool CloseHandle(System.IntPtr handle);
 '@
 
+# The root and every descendant. Windows keeps a dead parent's PID in
+# ParentProcessId, and PIDs are reused, so a child must also have started
+# after its parent or an unrelated process can be counted.
 function Get-Tree([uint32]$root) {
     $all = Get-CimInstance Win32_Process
     $ids = [System.Collections.Generic.List[uint32]]::new()
     $ids.Add($root)
     for ($i = 0; $i -lt $ids.Count; $i++) {
-        foreach ($c in $all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -ne $ids[$i] }) {
+        $parent = $all | Where-Object ProcessId -eq $ids[$i]
+        foreach ($c in $all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -ne $ids[$i] -and $_.CreationDate -ge $parent.CreationDate }) {
             if (-not $ids.Contains([uint32]$c.ProcessId)) { $ids.Add([uint32]$c.ProcessId) }
         }
     }
@@ -149,8 +153,12 @@ try {
 finally {
     foreach ($h in $handles.Values) { [void][Buddy.Cycles]::CloseHandle($h) }
     if ($launched) {
+        # Children first; only the app and its WebView2 processes.
         foreach ($id in (Get-Tree $launched.Id | Sort-Object -Descending)) {
-            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            $name = (Get-Process -Id $id -ErrorAction SilentlyContinue).Name
+            if ($id -eq $launched.Id -or $name -eq 'msedgewebview2') {
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 }
