@@ -487,6 +487,23 @@ cheapest first:
    position on a `div` instead of drawing on a canvas, which may let
    WebKit skip repainting the canvas layer. Needs a Mac to measure.
 
+### Slower sleeping cat (owner decision, 2026-11-21)
+
+The owner chose option 2. `sleeping` frames are now held twice as long (a "z"
+every 2.6 s, 20.8 s cycle, 0.34 frame changes/s, was 0.67). Art only.
+Perf workflow run 44920188264 on the PR branch, release build, 60 s windows:
+
+| Platform (CI) | State | Memory | CPU (one core) | Before |
+|---|---|---|---|---|
+| macos-latest | idle | 49.7 MB footprint | 0.52 % | 0.67 % |
+| macos-latest | sleeping | 50.0 MB footprint | **0.46 %** | 0.92 % |
+| windows-latest | idle | 53.1 MB private WS | 0.43 % | 0.45 % |
+| windows-latest | sleeping | 47.5 MB private WS | **0.12 %** | 0.37 % |
+
+One run per state; idle is unchanged (its timing didn't change, so the small
+difference is run-to-run noise). macOS sleeping now has about 0.5 % of one
+core of margin.
+
 ### Timers and background threads (spec 10: "one scheduler timer, no busy loops or fixed-interval polling on the UI side")
 
 Audit of `src-tauri/src` and `src/` on main at `63cc5f3`, re-checked after
@@ -554,6 +571,9 @@ recurring work is the frame timer of the cat's own animation.
   CI 0.45 % / 0.37 %) and for macOS idle (0.67 %). **macOS sleeping is
   0.92 % of one core on average with one CI run at 1.001 %: no margin,
   raised with the owner** (see M7 results for options). Timer audit: met.
+- Slower sleeping cat (2026-11-21, owner decision): macOS sleeping
+  **0.46 %** of one core (CI), Windows 0.12 %. **All targets met on both
+  platforms.**
 
 Options if Windows private working set goes over 80 MB later, cheapest first:
 
