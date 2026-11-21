@@ -30,10 +30,14 @@
 //!
 //! # Chime
 //!
-//! The chime plays in the buddy webview. The contract has no event for it,
-//! and the webview cannot read the settings, so Rust asks the page to play
-//! it by evaluating [`CHIME_SCRIPT`] (only for `Shown`, only with sound on).
-//! `eval` is host-side script injection and needs no capability.
+//! The chime plays in the buddy webview. The webview cannot read the
+//! settings, so Rust tells the page when to play it (only for `Shown`, only
+//! with sound on) with the app-internal [`CHIME_EVENT`] to the buddy window.
+//! Like `set_hit_regions`, this is buddy-window plumbing, not part of the
+//! IPC contract in `domain::ipc`. An event instead of `WebviewWindow::eval`
+//! (task 4.4): no script is built in Rust, the page exposes no global
+//! function, and the page only needs `core:event:allow-listen`, which it
+//! already has.
 
 pub mod ledger_writer;
 mod service;
@@ -51,8 +55,9 @@ use crate::domain::ipc::{event, BubbleRequest, BubbleView, SetPausedRequest, Sno
 use crate::domain::{BuddyEvent, Clock, Error, Event, Result, SystemClock};
 use crate::BUDDY_WINDOW_LABEL;
 
-/// Script the buddy page runs to play the chime (see `src/buddy/chime.ts`).
-pub const CHIME_SCRIPT: &str = "window.__aichemistPlayChime?.()";
+/// App-internal event (payload `null`) that makes the buddy page play the
+/// chime (see `src/buddy/chime.ts`). Emitted to the buddy window only.
+pub const CHIME_EVENT: &str = "play-chime";
 
 /// The real [`Outlet`]: buddy state machine plus events to the buddy window.
 struct TauriOutlet<R: Runtime>(AppHandle<R>);
@@ -75,9 +80,7 @@ impl<R: Runtime> Outlet for TauriOutlet<R> {
     }
 
     fn play_chime(&self) {
-        if let Some(window) = self.0.get_webview_window(BUDDY_WINDOW_LABEL) {
-            let _ = window.eval(CHIME_SCRIPT);
-        }
+        let _ = self.0.emit_to(BUDDY_WINDOW_LABEL, CHIME_EVENT, ());
     }
 }
 
