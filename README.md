@@ -35,8 +35,9 @@ contain passwords, tokens or event contents.
 
 > **Status: pre-release.** All v1 features are in place: task reminders, meeting reminders
 > from CalDAV and Microsoft 365 calendars (synced in the background, with "Sync now" in
-> Settings), launch at login and the opt-in update check. Syncing has not yet been tested
-> against real iCloud, Nextcloud or Microsoft 365 accounts, so please report problems.
+> Settings), launch at login and the opt-in update check. CalDAV sync has been tested against
+> a real iCloud account. It has not yet been tested against Nextcloud or Microsoft 365
+> accounts, so please report problems.
 
 ## Install
 
