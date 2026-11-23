@@ -755,8 +755,10 @@ tooltip through UI Automation.
 - [x] "Sync now": the log shows "sync requested", the row goes to
   "Syncing" and the cat to `thinking`.
 - [x] Memory and CPU: see `docs/perf.md` (51.4 MB, 0.28 % of one core).
-- [ ] Not tested: a real calendar server (the owner's accounts were not
-  available), and a real sleep/resume cycle.
+- [x] Real CalDAV server: tested by the owner against iCloud, works (see
+  the macOS checklist item 2 below for the scenarios covered).
+- [ ] Not tested: a real Microsoft 365 or Nextcloud account, and a real
+  sleep/resume cycle.
 
 ### Manual test checklist for macOS (task 3.6)
 
